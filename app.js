@@ -8,16 +8,21 @@ import authRouter from "./src/routes/auth.routes.js";
 import productRouter from "./src/routes/createProduct.routes.js";
 import connectToDatabse from "./src/database/mongodb.js";
 import errorHandling from "./src/middleware/error.middleware.js";
+import brandRouter from "./src/routes/brand.routers.js";
+import categoryRouter from "./src/routes/category.routers.js";
 
 const app = express();
 
-app.use(express.json());
-app.use(express.urlencoded({extended: false}));
+app.use(express.json({limit: "16kb"}));
+app.use(express.urlencoded({extended: false,limit: "16kb"}));
+app.use(express.static("public"))
 app.use(cookieParser());
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/products', productRouter);
+app.use('/api/v1/brands', brandRouter);
+app.use('/api/v1/category', categoryRouter);
 
 app.use(errorHandling);
 
