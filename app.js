@@ -1,15 +1,17 @@
 import express from "express";
-// import {PORT}  from "./config/env.js";
 import cookieParser from "cookie-parser";
 import{PORT} from "./config/env.js"
 
 import userRouter from "./src/routes/user.routes.js";
 import authRouter from "./src/routes/auth.routes.js";
-import productRouter from "./src/routes/createProduct.routes.js";
+import productRouter from "./src/routes/product.routes.js";
 import connectToDatabse from "./src/database/mongodb.js";
 import errorHandling from "./src/middleware/error.middleware.js";
 import brandRouter from "./src/routes/brand.routers.js";
 import categoryRouter from "./src/routes/category.routers.js";
+import orderRouter from "./src/routes/order.routers.js";
+import orderItemsRouter from "./src/routes/order_items.routers.js";
+
 
 const app = express();
 
@@ -23,6 +25,8 @@ app.use('/api/v1/users', userRouter);
 app.use('/api/v1/products', productRouter);
 app.use('/api/v1/brands', brandRouter);
 app.use('/api/v1/category', categoryRouter);
+app.use('/api/v1/order', orderRouter);
+app.use('/api/v1/cart', orderItemsRouter);
 
 app.use(errorHandling);
 

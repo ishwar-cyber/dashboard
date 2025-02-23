@@ -9,7 +9,7 @@ const productSchema = new mongoose.Schema(
         },
         image:{
             type: String,
-            required: true
+            required: [true, 'Product image required']
         },
         price:{
             type: Number,
@@ -17,8 +17,8 @@ const productSchema = new mongoose.Schema(
             min: [0, 'Price must be greater then 0']
         },
         category:{
-            type: String,
-            required: true
+            type:  mongoose.Schema.Types.ObjectId,
+            ref: 'categorys',
         },
         description:{
             type: String,
@@ -29,8 +29,8 @@ const productSchema = new mongoose.Schema(
             required: true
         },
         brand:{
-            type: String,
-            required: true
+            type:  mongoose.Schema.Types.ObjectId,
+           ref: 'brands',
         }
     },{timestamps: true}
 );

@@ -1,10 +1,15 @@
 import multer from "multer";
 import path from "path";
 
+const FILE_TYPES_MAP ={
+    'image/png':'png',
+    'image/jpeg':'jpeg',
+    'image/jpg':'jpg'
+}
 // Set storage engine
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, './public/');
+        cb(null, 'public/');
     },
     filename: (req, file, cb) => {
         cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
@@ -14,5 +19,5 @@ const storage = multer.diskStorage({
 // Initialize Multer
 export const upload = multer({
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
+    // limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
 });
