@@ -9,23 +9,24 @@ cloudinary.config({
     api_secret: CLOUD_SECRET_KEY
 });
 
-const uploadFile = async (localFilePath) => {
+const uploadFile = async (file) => {
+    console.log('file', file);
+    
     try {
-        if (!localFilePath) return null;
+        if (!file) return null;
         
-        const response = await cloudinary.uploader.upload(localFilePath, {
-            resource_type: "auto"
-        });
-        console.log('response', response);
+        const response = await cloudinary.uploader.upload(file);
+
+        console.log('response', response.url);
         
         return response;    
     } catch (error) {
         console.log('error 12456', error);
         
         // Check if the file exists before trying to delete it
-        if (fs.existsSync(localFilePath)) {
+        if (fs.existsSync(file)) {
             try {
-                fs.unlinkSync(localFilePath);
+                fs.unlinkSync(file);
                 console.log('File deleted successfully');
             } catch (unlinkError) {
                 console.error('Error deleting file:', unlinkError);
@@ -36,4 +37,25 @@ const uploadFile = async (localFilePath) => {
     }
 };
 
-export { uploadFile };
+const uploadFiles = async (files) => {
+    console.log('files', files);
+    
+    try {
+        if (!files || files.length === 0) return null;
+        
+        const uploadPromises = files.map(file => cloudinary.uploader.upload(file.path));
+        const responses = await Promise.all(uploadPromises);
+
+       const newUrl = responses.map(response => {
+            return response.url;
+        });
+        console.log('responses', newUrl);
+        
+        return newUrl;    
+    } catch (error) {
+        console.log('error 12456', error);
+        
+    }
+};
+
+export { uploadFile, uploadFiles };

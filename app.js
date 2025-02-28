@@ -1,6 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import{PORT} from "./config/env.js"
+import cors from "cors";
 
 import userRouter from "./src/routes/user.routes.js";
 import authRouter from "./src/routes/auth.routes.js";
@@ -19,6 +20,7 @@ app.use(express.json({limit: "16kb"}));
 app.use(express.urlencoded({extended: false,limit: "16kb"}));
 app.use(express.static("public"))
 app.use(cookieParser());
+app.use(cors())
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);

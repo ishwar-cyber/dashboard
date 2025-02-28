@@ -1,28 +1,30 @@
 import Product from "../modules/product.modules.js"
-import { uploadFile } from "../utilities/cloudnary.js";
+import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 export const createProduct = async(req, res, next)=>{
     try {
-        const {name,price,model,description,category,brand,image} = req.body;
-        if(!req.file){
+        const {name,price,model,description,category,brand, image} = req.body;
+        if(!req.files){
             const error = new Error("Please upload a file");
             error.statusCode = 400;
             throw error;
         }
-        const file = req.file.filename;
-        console.log('file name', file);
-        let uploadedImage = await uploadFile(file);
-        // console.log('image users uploaded', uploadedImage);
-        
-        const existingProduct = await Product.findOne({model});
 
+        const imagesLocal = req.files.multipleImages;
+        const thumbnailLocal = req.files.thumbnail[0]?.path;
+        if(!thumbnailLocal){
+            throw new error("Thumbnail image is required");
+        }
+
+        const thumbnail = await uploadFile(thumbnailLocal);
+        const images = await uploadFiles(imagesLocal);
+
+        const existingProduct = await Product.findOne({model});
         if(existingProduct){
             const error = new Error("Product Aleady added please increase Quntity");
             error.statusCode = 409;
             throw error;
-        }
-    
-                    
-        let saveProduct = new Product({name, price,description,model,category,brand,image});
+        }        
+        let saveProduct = new Product({name, price,description,model,category,brand,thumbnail:thumbnail.url, multipleImages: images});
         await saveProduct.save();
         res.status(200).json({
             success: true,

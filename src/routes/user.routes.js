@@ -1,5 +1,5 @@
 import { Router } from "express";
-import authorize from "../middleware/auth.middlerwares.js";
+import {authorize, roleBase} from "../middleware/auth.middlerwares.js";
 import { getUser } from "../controllers/user.controllers.js";
 const userRouter = Router();
 

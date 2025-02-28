@@ -7,10 +7,13 @@ const productSchema = new mongoose.Schema(
             required: [true,'Product name is required'],
             trim:true,
         },
-        image:{
+        thumbnail:{
             type: String,
-            required: [true, 'Product image required']
+            required: [true, 'Thumbnail image required']
         },
+        multipleImages:[{
+            type: String,
+        }],
         price:{
             type: Number,
             required: [true, 'Product price required'],
