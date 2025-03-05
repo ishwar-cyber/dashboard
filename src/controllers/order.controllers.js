@@ -3,7 +3,7 @@ import OrderItem from '../modules/order_items.modules.js';
 import Product from '../modules/product.modules.js';
 export const order = async (req, res) => {
     try {
-        const orderItemsId = req.body.orderItems.map(async (item) => {
+        const orderItemsId = Promise.all(req.body.orderItems.map(async item => {
            let product = new OrderItem({
                 quantity: item.quantity,
                 product: item.product
@@ -11,13 +11,15 @@ export const order = async (req, res) => {
             product = await product.save();
             return product._id;
 
-        });
+        }));
+
+        const orderItemsList = await orderItemsId;
         // const products = await Product.find({ _id: { $in: orderItemsId } });
         const products = await orderItemsId;
         const { phone, orderStatus, paymentStatus, paymentType, addressLine1, addressLine2,city, state,pincode, totalPrice } = req.body;
         const order = new Order({
             user: req.user._id,
-            orderItems: products,
+            orderItems: orderItemsList,
             orderStatus,
             paymentStatus,
             paymentType,

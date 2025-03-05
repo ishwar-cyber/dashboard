@@ -23,6 +23,11 @@ const productSchema = new mongoose.Schema(
             type:  mongoose.Schema.Types.ObjectId,
             ref: 'categorys',
         },
+        isStock:{
+            type: Boolean,
+            default: true,
+            min: [0, 'Stock must be greater then 0']
+        },
         description:{
             type: String,
             required: true
