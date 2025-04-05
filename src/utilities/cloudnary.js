@@ -19,7 +19,7 @@ const uploadFile = async (file) => {
 
         console.log('response', response.url);
         
-        return response;    
+        return response.url;    
     } catch (error) {
         console.log('error 12456', error);
         
@@ -42,7 +42,7 @@ const uploadFiles = async (files) => {
     
     try {
         if (!files || files.length === 0) return null;
-        
+
         const uploadPromises = files.map(file => cloudinary.uploader.upload(file.path));
         const responses = await Promise.all(uploadPromises);
 

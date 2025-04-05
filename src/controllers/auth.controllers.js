@@ -65,6 +65,7 @@ export const signIn = async(req, res, next)=>{
                 _id: user._id,
                 email: user.email,
                 name: user.name,
+                role: user.isRole,
             }
         });
     } catch (error) {

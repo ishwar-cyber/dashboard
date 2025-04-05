@@ -6,8 +6,8 @@ import { authorize, roleBase } from "../middleware/auth.middlerwares.js";
 
 const brandRouter = express.Router();
 
-brandRouter.post('/', authorize, roleBase('admin'), upload.single('brandLogo'), create);
-brandRouter.get('/', authorize, getBrand);
+brandRouter.post('/', authorize, roleBase('admin'), upload.single('image'), create);
+brandRouter.get('/', getBrand);
 
 
 export default brandRouter;

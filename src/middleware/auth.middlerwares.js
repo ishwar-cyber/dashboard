@@ -6,8 +6,10 @@ import User from "../modules/user.modules.js";
 const authorize = async (req, res, next) => {
     try {
         let token;
-        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-            token = req.headers.authorization.split(' ')[1];
+       let authToken =  req.headers.authorization || req.headers.authtoken ? req.headers.authtoken : null;
+        if ((authToken.startsWith('Bearer')) || authToken.startsWith('Bearer')) {
+            let authHeader = req.headers.authorization || req.headers.authtoken;
+            token = authHeader.split(' ')[1];
         }
         if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
