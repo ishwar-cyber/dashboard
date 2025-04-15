@@ -12,6 +12,7 @@ import brandRouter from "./src/routes/brand.routers.js";
 import categoryRouter from "./src/routes/category.routers.js";
 import orderRouter from "./src/routes/order.routers.js";
 import orderItemsRouter from "./src/routes/order_items.routers.js";
+import couponRouter from "./src/routes/coupon.routers.js";
 
 
 const app = express();
@@ -29,6 +30,8 @@ app.use('/api/v1/brands', brandRouter);
 app.use('/api/v1/category', categoryRouter);
 app.use('/api/v1/order', orderRouter);
 app.use('/api/v1/cart', orderItemsRouter);
+app.use('/api/v1/coupon', couponRouter);
+
 
 app.use(errorHandling);
 

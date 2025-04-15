@@ -6,19 +6,14 @@ import User from "../modules/user.modules.js";
 const authorize = async (req, res, next) => {
     try {
         let token;
-       let authToken =  req.headers.authorization || req.headers.authtoken ? req.headers.authtoken : null;
-        if ((authToken.startsWith('Bearer')) || authToken.startsWith('Bearer')) {
-            let authHeader = req.headers.authorization || req.headers.authtoken;
-            token = authHeader.split(' ')[1];
-        }
+       let authToken =  req.headers.authorization ? req.headers.authorization : req.headers.authtoken ? req.headers.authtoken : null;
+        if ((authToken.startsWith('Bearer'))) token = authToken.split(' ')[1];
         if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
         const decoded = jwt.verify(token, JWT_SECRET);
-        console.log('user id', decoded.userId);
-
         const user = await User.findById(decoded.userId);
-        if (!user) return res.status(401).json({ message: 'Unauthorized' });
 
+        if (!user) return res.status(401).json({ message: 'Unauthorized' });
         req.user = user; // Attach user to request
         next();
     } catch (error) {
