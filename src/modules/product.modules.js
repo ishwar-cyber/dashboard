@@ -2,47 +2,127 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
     {
-        name:{
-            type:String,
-            required: [true,'Product name is required'],
-            trim:true,
-        },
-        thumbnail:{
+        name: {
             type: String,
-            required: [true, 'Thumbnail image required']
+            required: [true, 'Product name is required'],
+            trim: true,
+            maxLength: [100, 'Product name cannot exceed 100 characters']
         },
-        multipleImages:[{
+        thumbnail: {
             type: String,
-        }],
-        price:{
+            required: [true, 'Thumbnail image required'],
+            // validate: {
+            //     validator: (v) => /^(http|https):\/\/[^ "]+$/.test(v),
+            //     message: props => `${props.value} is not a valid URL!`
+            // }
+        },
+        price: {
             type: Number,
             required: [true, 'Product price required'],
-            min: [0, 'Price must be greater then 0']
+            min: [0, 'Price must be greater than 0'],
+            max: [1000000, 'Price seems too high']
         },
-        category:{
-            type:  mongoose.Schema.Types.ObjectId,
-            ref: 'categorys',
+        variants: [
+            {
+                sku: {
+                    type: String,
+                    trim: true,
+                    maxLength: [50, 'Variant name cannot exceed 50 characters']
+                },
+                price: {
+                    type: Number,
+                    min: [0, 'Price must be greater than 0']
+                },
+                stock: {
+                    type: Number,
+                    min: [0, 'Stock cannot be negative']
+                },
+                image: {
+                    type: String,
+                    // validate: {
+                    //     validator: (v) => !v || /^(http|https):\/\/[^ "]+$/.test(v),
+                    //     message: props => `${props.value} is not a valid URL!`
+                    // }
+                }
+            }
+        ],
+        category: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Category', // Changed to singular and capitalized (Mongoose convention)
+            required: [true, 'Category is required']
         },
-        isStock:{
+        stock: {
+            type: Number,
+            default: 0, // Changed from boolean to number default
+            min: [0, 'Stock cannot be negative']
+        },
+        description: {
+            type: String,
+            required: [true, 'Description is required'],
+            maxLength: [2000, 'Description cannot exceed 2000 characters']
+        },
+        model: {
+            type: String,
+            required: [true, 'Model is required'],
+            trim: true,
+            maxLength: [50, 'Model cannot exceed 50 characters']
+        },
+        brand: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Brand', // Changed to singular and capitalized
+            required: [true, 'Brand is required']
+        },
+        status: {
             type: Boolean,
-            default: true,
-            min: [0, 'Stock must be greater then 0']
+            default: true
         },
-        description:{
-            type: String,
-            required: true
-        },
-        model:{
-            type: String,
-            required: true
-        },
-        brand:{
-            type:  mongoose.Schema.Types.ObjectId,
-           ref: 'brands',
-        }
-    },{timestamps: true}
+        specifications: [{
+            name: {
+                type: String,
+                required: [true, 'Specification name is required'],
+                trim: true,
+                maxLength: [50, 'Specification name cannot exceed 50 characters']
+            },
+            value: {
+                type: String,
+                required: [true, 'Specification value is required'],
+                trim: true,
+                maxLength: [100, 'Specification value cannot exceed 100 characters']
+            }
+        }],
+        warranty: [
+            {
+                period: {
+                    type: Number,
+                    min: [0, 'Warranty period cannot be negative'],
+                    max: [120, 'Warranty period cannot exceed 120 months']
+                }, 
+                type: {
+                    type: String,
+                    // enum: ['Manufacturer', 'Seller', 'Extended', 'Other'],
+                    // default: 'Manufacturer'
+                },
+                details: {
+                    type: String,
+                    maxLength: [500, 'Warranty details cannot exceed 500 characters']
+                }
+            }
+        ]
+    },
+    {
+        timestamps: true,
+        toJSON: { virtuals: true }, // Optional: if you want virtuals in JSON output
+        toObject: { virtuals: true } // Optional: if you want virtuals when converting to objects
+    }
 );
 
-const Product = mongoose.model('product',productSchema,)
+// Optional: Add indexes for better query performance
+productSchema.index({ name: 'text', description: 'text', model: 'text' });
+productSchema.index({ category: 1 });
+productSchema.index({ brand: 1 });
+productSchema.index({ price: 1 });
+productSchema.index({ status: 1 });
+
+const Product = mongoose.model('Product', productSchema); // Capitalized model name
 
 export default Product;

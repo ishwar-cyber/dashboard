@@ -2,29 +2,22 @@ import Product from "../modules/product.modules.js"
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 export const createProduct = async(req, res, next)=>{
     try {
-        const {name,price,model,description,category,brand, image} = req.body;
-        if(!req.files){
-            const error = new Error("Please upload a file");
-            error.statusCode = 400;
-            throw error;
-        }
+        console.log('req.body', req.body.product);
 
-        const imagesLocal = req.files.multipleImages;
-        const thumbnailLocal = req.files.thumbnail[0]?.path;
-        if(!thumbnailLocal){
-            throw new error("Thumbnail image is required");
-        }
-
-        const thumbnail = await uploadFile(thumbnailLocal);
-        const images = await uploadFiles(imagesLocal);
-
+        const {name, model, price, stock, warranty, variants, description, specifications, category,brand, status} = req.body;
+        console.log('req.file', req.file.path);
+       
+        const file = req.file; // Access the uploaded file from Multer
+        const thumbnail = file ? await uploadFile(file.path) : null; // Upload to Cloudinary if file exists
+        console.log('Uploaded image URL:', thumbnail);
+  
         const existingProduct = await Product.findOne({model});
         if(existingProduct){
             const error = new Error("Product Aleady added please increase Quntity");
             error.statusCode = 409;
             throw error;
         }        
-        let saveProduct = new Product({name, price,description,model,category,brand,thumbnail:thumbnail.url, multipleImages: images});
+        let saveProduct = new Product({name, price, warranty, variants, stock, description, specifications, model, category, brand, thumbnail, status});
         await saveProduct.save();
         res.status(200).json({
             success: true,

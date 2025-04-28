@@ -8,7 +8,7 @@ const productRouter = Router();
 productRouter.get('/', getAllProducts);
 productRouter.get('/search', search);
 productRouter.get('/:id', getProductById);
-productRouter.post('/',authorize, roleBase('admin'), upload.fields([{name:'thumbnail', maxCount: 1},{name:'multipleImages', maxCount: 5}]), createProduct);
+productRouter.post('/',authorize, roleBase('admin'), upload.single('thumbnail'), createProduct);
 productRouter.put('/:id',(req, res)=>{res.send({title:'Update product'})});
 productRouter.delete('/:id',authorize, roleBase('admin'), deleteProduct);
 
