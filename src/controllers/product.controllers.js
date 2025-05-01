@@ -4,7 +4,7 @@ export const createProduct = async(req, res, next)=>{
     try {
         console.log('req.body', req.body.product);
 
-        const {name, model, price, stock, warranty, variants, description, specifications, category,brand, status} = req.body;
+        const {name, model, price, stock, warranty,productWeight, variants, description, specifications, category,brand, status} = req.body;
         console.log('req.file', req.file.path);
        
         const file = req.file; // Access the uploaded file from Multer
@@ -17,7 +17,7 @@ export const createProduct = async(req, res, next)=>{
             error.statusCode = 409;
             throw error;
         }        
-        let saveProduct = new Product({name, price, warranty, variants, stock, description, specifications, model, category, brand, thumbnail, status});
+        let saveProduct = new Product({name, price, warranty, variants,productWeight, stock, description, specifications, model, category, brand, thumbnail, status});
         await saveProduct.save();
         res.status(200).json({
             success: true,

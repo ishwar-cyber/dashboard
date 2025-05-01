@@ -67,6 +67,11 @@ const productSchema = new mongoose.Schema(
             trim: true,
             maxLength: [50, 'Model cannot exceed 50 characters']
         },
+        productWeight: {
+            type: String,
+            required: [true, 'Product weight is required'],
+            trim: true,
+        },
         brand: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Brand', // Changed to singular and capitalized
