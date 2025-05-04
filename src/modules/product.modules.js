@@ -46,15 +46,14 @@ const productSchema = new mongoose.Schema(
                 }
             }
         ],
-        category: {
+        category: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Category', // Changed to singular and capitalized (Mongoose convention)
-            required: [true, 'Category is required']
-        },
+            required: [true, 'At least one category is required']
+        }],
         stock: {
-            type: Number,
-            default: 0, // Changed from boolean to number default
-            min: [0, 'Stock cannot be negative']
+            type: String,
+            required: [true, 'Stock is required'],
         },
         description: {
             type: String,
@@ -71,6 +70,11 @@ const productSchema = new mongoose.Schema(
             type: String,
             required: [true, 'Product weight is required'],
             trim: true,
+        },
+        subCategory: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'SubCategory', // Changed to singular and capitalized
+            required: [true, 'Subcategory is required']
         },
         brand: {
             type: mongoose.Schema.Types.ObjectId,
