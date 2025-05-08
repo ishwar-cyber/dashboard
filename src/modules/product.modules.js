@@ -24,6 +24,12 @@ const productSchema = new mongoose.Schema(
         },
         variants: [
             {
+                variantName: {
+                    type: String,
+                    required: [true, 'Variant name is required'],
+                    trim: true,
+                    maxLength: [1000,'Variant name cannot exceed 50 characters']
+                },
                 sku: {
                     type: String,
                     trim: true,
@@ -37,7 +43,7 @@ const productSchema = new mongoose.Schema(
                     type: Number,
                     min: [0, 'Stock cannot be negative']
                 },
-                image: {
+                variantImage: {
                     type: String,
                     // validate: {
                     //     validator: (v) => !v || /^(http|https):\/\/[^ "]+$/.test(v),
@@ -120,8 +126,48 @@ const productSchema = new mongoose.Schema(
     },
     {
         timestamps: true,
-        toJSON: { virtuals: true }, // Optional: if you want virtuals in JSON output
-        toObject: { virtuals: true } // Optional: if you want virtuals when converting to objects
+        toJSON: { 
+            virtuals: true,
+            transform: function(doc, ret) {
+                delete ret._id;
+                if (ret.variants) {
+                    ret.variants.forEach(variant => {
+                        delete variant._id;
+                    });
+                }
+                if (ret.specifications) {
+                    ret.specifications.forEach(spec => {
+                        delete spec._id;
+                    });
+                }
+                if (ret.warranty) {
+                    ret.warranty.forEach(warr => {
+                        delete warr._id;
+                    });
+                }
+            }
+        },
+        toObject: { 
+            virtuals: true,
+            transform: function(doc, ret) {
+                delete ret._id;
+                if (ret.variants) {
+                    ret.variants.forEach(variant => {
+                        delete variant._id;
+                    });
+                }
+                if (ret.specifications) {
+                    ret.specifications.forEach(spec => {
+                        delete spec._id;
+                    });
+                }
+                if (ret.warranty) {
+                    ret.warranty.forEach(warr => {
+                        delete warr._id;
+                    });
+                }
+            }
+        }
     }
 );
 

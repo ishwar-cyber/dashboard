@@ -2,10 +2,14 @@ import Coupon from '../modules/coupon.modules.js';  // Fix the path to match you
 
 export const createCoupon = async (req, res) => {
     try {
-        const { code, discount, startDate, expiryDate } = req.body;
+        const { code, discount, product,noExpiry, applyto, discountType, startDate, expiryDate } = req.body;
         const coupon = new Coupon({
             code,
             discount,
+            product, 
+            noExpiry, 
+            applyto, 
+            discountType,
             startDate,
             expiryDate
         });

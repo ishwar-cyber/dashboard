@@ -22,14 +22,29 @@ const couponSchema = new mongoose.Schema({
     },
     expiryDate: {
         type: Date,
-        required: [true, 'Expiry Date is Required'],
-        validate: {
-            validator: function(value) {
-                // Check if the date is valid
-                return !isNaN(value) && value instanceof Date;
-            },
-            message: props => 'Expiry date must be a valid date in ISO format (YYYY-MM-DD) or ISO datetime format (YYYY-MM-DDTHH:mm:ss.sssZ)'
-        }
+        // validate: {
+        //     validator: function(value) {
+        //         // Check if the date is valid
+        //         return !isNaN(value) && value instanceof Date;
+        //     },
+        //     message: props => 'Expiry date must be a valid date in ISO format (YYYY-MM-DD) or ISO datetime format (YYYY-MM-DDTHH:mm:ss.sssZ)'
+        // }
+    },
+    noExpiry:{
+        type: Boolean,
+        default: false
+    },
+    product: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product',
+        required: [true, 'Product is Required']
+    }],
+    discountType: {
+        type: String,
+        default: 'percentage'
+    },
+    applyTo: {
+        type: String,
     },
 }, { timestamps: true, toJSON: { virtuals: true } });
 couponSchema.set('toJSON', { virtuals: true });

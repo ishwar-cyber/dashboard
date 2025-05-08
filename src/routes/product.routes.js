@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createProduct, search, getAllProducts, getProductById, deleteProduct } from "../controllers/product.controllers.js";
+import { createProduct, search, getAllProducts, updateProductById, getProductById, deleteProduct } from "../controllers/product.controllers.js";
 import {authorize, roleBase} from "../middleware/auth.middlerwares.js";
 import { upload } from "../middleware/multer.middlerwares.js";
 
@@ -9,7 +9,7 @@ productRouter.get('/', getAllProducts);
 productRouter.get('/search', search);
 productRouter.get('/:id', getProductById);
 productRouter.post('/',authorize, roleBase('admin'), upload.single('thumbnail'), createProduct);
-productRouter.put('/:id',(req, res)=>{res.send({title:'Update product'})});
+productRouter.put('/:id', authorize, roleBase('admin'), updateProductById);
 productRouter.delete('/:id',authorize, roleBase('admin'), deleteProduct);
 
 
