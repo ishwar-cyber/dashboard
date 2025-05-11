@@ -2,15 +2,31 @@ import Product from "../modules/product.modules.js"
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 export const createProduct = async(req, res, next)=>{
     try {
-        console.log('req.body', req.body.product);
+        const {name, model, price, stock, warranty, productWeight, subCategory, description, specifications, category, brand, status} = req.body;
+        let {variants} = req.body; // Changed to let from const
+        
+        const file = req.files;
+        const multpleImages = file ? await uploadFiles(file) : null;
+        let thumbnail = null;
+        
+        if(multpleImages && multpleImages.length > 0) {
+            thumbnail = multpleImages[0];
+            
+            // Parse variants if it's a string
+            if (typeof variants === 'string') {
+                variants = JSON.parse(variants || '[]');
+            }
+            
+            // Handle variants if they exist
+            if(variants && variants.length > 0) {
+                const variantImages = multpleImages.slice(1); // Skip first image (thumbnail)
+                variants = variants.map((variant, index) => ({
+                    ...variant,
+                    variantImage: variantImages[index] || null
+                }));
+            }
+        }
 
-        const {name, model, price, stock, warranty, productWeight, subCategory, variants, description, specifications, category,brand, status} = req.body;
-        console.log('req.file', req.file.path);
-       
-        const file = req.file; // Access the uploaded file from Multer
-        const thumbnail = file ? await uploadFile(file.path) : null; // Upload to Cloudinary if file exists
-        console.log('Uploaded image URL:', thumbnail);
-  
         const existingProduct = await Product.findOne({model});
         if(existingProduct){
             const error = new Error("Product Aleady added please increase Quntity");

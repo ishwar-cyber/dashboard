@@ -8,9 +8,23 @@ const productRouter = Router();
 productRouter.get('/', getAllProducts);
 productRouter.get('/search', search);
 productRouter.get('/:id', getProductById);
-productRouter.post('/',authorize, roleBase('admin'), upload.single('thumbnail'), createProduct);
-productRouter.put('/:id', authorize, roleBase('admin'), updateProductById);
+productRouter.post('/', 
+    authorize, 
+    roleBase('admin'), 
+    upload.any(),
+    createProduct
+);
+productRouter.put('/:id', 
+    authorize, 
+    roleBase('admin'), 
+    upload.any(),
+    updateProductById
+);
 productRouter.delete('/:id',authorize, roleBase('admin'), deleteProduct);
 
-
 export default productRouter;
+
+// upload.fields([
+//     { name: 'thumbnail', maxCount: 1 },
+//     { name: 'variants[0][variantImage]', maxCount: 1 }
+// ]), 

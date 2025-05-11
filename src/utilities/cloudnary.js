@@ -38,24 +38,35 @@ const uploadFile = async (file) => {
 };
 
 const uploadFiles = async (files) => {
-    console.log('files', files);
-    
     try {
         if (!files || files.length === 0) return null;
 
-        const uploadPromises = files.map(file => cloudinary.uploader.upload(file.path));
-        const responses = await Promise.all(uploadPromises);
+        const urls = [];
+        // Upload files sequentially
+        // console.log('get cloudnary files', files);
+        
+        for (const file of files) {
+            console.log('get cloudnary single file', file);
+            
+            try {
+                const result = await cloudinary.uploader.upload(file.path);
+                console.log('result fiile',result);
+                
+                urls.push(result.url);
+                
+                // Delete local file after successful upload
+                if (fs.existsSync(file.path)) {
+                    fs.unlinkSync(file.path);
+                }
+            } catch (uploadError) {
+                console.error(`Error uploading file ${file.originalname}:`, uploadError);
+            }
+        }
 
-       const newUrl = responses.map(response => {
-            return response.url;
-        });
-        console.log('responses', newUrl);
-        
-        return newUrl;    
+        return urls.length > 0 ? urls : null;
     } catch (error) {
-        console.log('error 12456', error);
-        
+        console.error('Error in uploadFiles:', error);
+        return null;
     }
 };
-
 export { uploadFile, uploadFiles };
