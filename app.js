@@ -14,6 +14,7 @@ import orderRouter from "./src/routes/order.routers.js";
 import orderItemsRouter from "./src/routes/order_items.routers.js";
 import couponRouter from "./src/routes/coupon.routers.js";
 import subCategoryRouter from "./src/routes/sub_category.routes.js";
+import pincodeRouter from "./src/routes/service_pincode.routers.js";
 
 const app = express();
 
@@ -30,9 +31,9 @@ app.use('/api/v1/brands', brandRouter);
 app.use('/api/v1/category', categoryRouter);
 app.use('/api/v1/order', orderRouter);
 app.use('/api/v1/cart', orderItemsRouter);
-app.use('/api/v1/coupon', couponRouter);
+app.use('/api/v1/coupons', couponRouter);
 app.use('/api/v1/subcategory', subCategoryRouter);
-
+app.use('/api/v1/pincode', pincodeRouter);
 
 
 app.use(errorHandling);

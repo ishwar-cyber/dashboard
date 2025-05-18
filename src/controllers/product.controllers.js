@@ -1,4 +1,5 @@
 import Product from "../modules/product.modules.js"
+import mongoose from "mongoose";
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 export const createProduct = async(req, res, next)=>{
     try {
@@ -89,7 +90,7 @@ export const search = async(req,res)=>{
 export const getProductById = async(req,res)=>{
     try {
         let product = await Product.findById(req.params.id);
-        res.status(200).json({  
+        res.status(200).json({
             success: true,
             data: product
         })
@@ -97,6 +98,36 @@ export const getProductById = async(req,res)=>{
         res.status(500).json({success: false, message: error.message})
     }
 }
+
+export const getProductByCategoryId = async (req, res) => {
+    try {
+        const categoryId = req.params.id;
+
+        // Validate category ID
+        if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid category ID'
+            });
+        }
+        console.log('categoryId', categoryId);
+        
+        // Find products where categories array contains this category ID
+        const products = await Product.find({ category: categoryId }).lean();
+        console.log('products', products);
+        
+        res.status(200).json({
+            success: true,
+            count: products.length,
+            data: products
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
 
 export const deleteProduct = async(req, res)=>{
     try {
