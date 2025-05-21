@@ -6,7 +6,7 @@ export const create = async (req, res) => {
         const file = req.file; // Access the uploaded file from Multer
         const image = file ? await uploadFile(file.path) : null; // Upload to Cloudinary if file exists
         
-        console.log('Uploaded image URL:', image);
+
         const existingCategory = await Category.findOne({name});
         if (existingCategory) {
             const error = new Error("Category already exists");
@@ -68,7 +68,7 @@ export const updateCategory = async (req, res) => {
             throw error;
         }
         const file = req.file; // Access the uploaded file from Multer
-        console.log('file', file);
+
         
         const { name, status } = req.body;
         category.name = name;
@@ -80,7 +80,7 @@ export const updateCategory = async (req, res) => {
             data: category
         });
     } catch (error) {
-        console.log('res', res);
+      
         
         res.status(error.statusCode || 500).json({
             success: false,
@@ -91,7 +91,7 @@ export const updateCategory = async (req, res) => {
 
 export const deleteById = async (req, res) => {
     try {
-        console.log('delete id', req.params.id);
+
         let category = await Category.findById(req.params.id);
         if (!category) {
             const error = new Error('Category not found');

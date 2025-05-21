@@ -24,9 +24,9 @@ const authorize = async (req, res, next) => {
 // Middleware for role-based authorization
 const roleBase = (role) => {
     return (req, res, next) => {
-        console.log('role', role);
-        console.log('req.user.role', req.user.isRole);
-        
+        if (!req.user) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
         if (req.user.isRole !== role) {
             return res.status(403).json({ message: 'You do not have permission to access this resource.' });
         }

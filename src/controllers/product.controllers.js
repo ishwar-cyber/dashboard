@@ -110,11 +110,11 @@ export const getProductByCategoryId = async (req, res) => {
                 message: 'Invalid category ID'
             });
         }
-        console.log('categoryId', categoryId);
+        
         
         // Find products where categories array contains this category ID
         const products = await Product.find({ category: categoryId }).lean();
-        console.log('products', products);
+       
         
         res.status(200).json({
             success: true,
@@ -146,7 +146,7 @@ export const updateProductById = async (req, res) => {
     try {
         const productId = req.params.id;
         const updates = req.body; // Assuming the product data is sent in the request body
-        console.log('updates', updates);
+        
         
         // Find existing product
         const existingProduct = await Product.findById(productId);

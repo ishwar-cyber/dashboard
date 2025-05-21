@@ -22,7 +22,7 @@ export const addPincode = async(req, res) =>{
 export const getPincode = async(req, res) =>{
     try {
         let pincode = await Pincode.find().populate('_id');
-        console.log('pincode', pincode);
+      
         res.status(200).json({
             success: true,
             message: "Pincode fetched successfully",

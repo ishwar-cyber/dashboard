@@ -6,9 +6,6 @@ export const create = async (req, res) => {
         const { name, status, description } = req.body;
         const file = req.file; // Access the uploaded file from Multer
         const image = file ? await uploadFile(file.path) : null; // Upload to Cloudinary if file exists
-
-        console.log('Uploaded image URL:', image);
-
         let existingBrand = await Brand.findOne({ name });
         if (existingBrand) {
             const error = new Error("Brand is already created");

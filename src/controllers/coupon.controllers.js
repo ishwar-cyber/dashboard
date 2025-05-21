@@ -39,7 +39,7 @@ export const getCoupons = async (req, res) => {
 export const getCouponById = async (req, res) => {
     try {
         const coupon = await Coupon.findOne({ code: req.params.code, isActive: true });
-        console.log('coupons', req.params.code, coupon)
+        
         if (!coupon) {
              return res.status(404).json({ error: 'Coupon not found or expired' });
         }
