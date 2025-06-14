@@ -3,6 +3,8 @@ import Cart from "../modules/cart.modules.js";
  
 export const addToCart = async (req, res, next) => {
   const { items } = req.body;
+  console.log('cart items:', req.body);
+  
     try {
         if (!items || items.length === 0) {
             return res.status(400).json({ message: 'No items provided' });
@@ -27,7 +29,11 @@ export const addToCart = async (req, res, next) => {
         }
         await cart.save();
 
-        res.status(200).json({ message: 'Item added to cart', cart });
+        res.status(200).json({ 
+            message: 'Item added to cart', 
+            cart,
+            itemCount: cart.items.length // Add item count in response
+        });
     } catch (error) {
         console.error("Error adding to cart:", error);
         res.status(500).json({ message: 'Error adding to cart', error: error.message });
@@ -35,6 +41,7 @@ export const addToCart = async (req, res, next) => {
 };
 
 export const getCartItems = async (req, res) => {
+    console.log("Fetching cart items for visitor ID:", req);
     const visitorId = req.params.visitorId;
     if (!visitorId) {
         return res.status(400).json({ message: 'Visitor ID is required' });
@@ -44,7 +51,7 @@ export const getCartItems = async (req, res) => {
         if (!cart) {
             return res.status(404).json({ message: 'Cart not found' });
         }
-        res.status(200).json({ message: 'Cart fetched successfully', cart });
+        res.status(200).json({ message: 'Cart fetched successfully', cart,  itemCount: cart.items.length  });
     } catch (error) {
         console.error("Error fetching cart:", error);
         res.status(500).json({ message: 'Error fetching cart', error: error.message });
@@ -92,10 +99,12 @@ export const updateCartItem = async (req, res) => {
     }
 };
 
-export const removeCartItem = async (req, res) => {
-    const { visitorId, itemId: itemId } = req.params;
 
-    // Validate required parameters
+export const removeCartItem = async (req, res) => {
+    const { visitorId, itemId } = req.params;
+    console.log("Visitor ID:", visitorId);
+    console.log("Item ID:", itemId);
+    
     if (!visitorId) {
         return res.status(400).json({ 
             success: false,
@@ -107,16 +116,15 @@ export const removeCartItem = async (req, res) => {
     if (!itemId) {
         return res.status(400).json({ 
             success: false,
-            message: 'Product ID is required',
-            error: 'MISSING_PRODUCT_ID'
+            message: 'Item ID is required',
+            error: 'MISSING_ITEM_ID'
         });
     }
 
-    try {
-        // Find and update the cart in one operation
+    try { 
         const updatedCart = await Cart.findOneAndUpdate(
             { visitorId },
-            { $pull: { items: { _id: _id } } },
+            { $pull: { items: { _id: itemId } } },
             { new: true }
         );
         
@@ -135,18 +143,17 @@ export const removeCartItem = async (req, res) => {
             message: 'Cart item removed successfully',
             data: {
                 cart: updatedCart,
-                removedItemId: productId
+                removedItemId: itemId
             }
         });
 
     } catch (error) {
         console.error("Error removing cart item:", error);
-        
-        // Handle specific error types if needed
+
         if (error.name === 'CastError') {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid product ID format',
+                message: 'Invalid item ID format',
                 error: 'INVALID_ID_FORMAT'
             });
         }
@@ -160,6 +167,33 @@ export const removeCartItem = async (req, res) => {
     }
 };
 
+
+export const getCartItemCount = async (req, res) => {
+    console.log("Fetching cart item count for visitor ID:", req.params.visitorId);
+    
+    const visitorId = req.params.visitorId;
+    console.log("Visitor ID 12345:", visitorId);
+    
+    if (!visitorId) {
+        return res.status(400).json({ message: 'Visitor ID is required' });
+    }
+    try {
+        const cart = await Cart.findOne({ visitorId });
+        console.log("Visitor ID 0000:", visitorId);
+        console.log("Cart:", cart);
+        
+        if (!cart) {
+            return res.status(404).json({ message: 'Cart not found' });
+        }
+        return res.status(200).json({ 
+            message: 'Cart item count fetched successfully', 
+            itemCount: cart.items.length 
+        });
+    } catch (error) {
+        console.error("Error fetching cart item count:", error);
+        return res.status(500).json({ message: 'Error fetching cart item count', error: error.message });
+    }
+}
 export const clearCart = async (req, res) => {
     const visitorId = req.params.visitorId;
 

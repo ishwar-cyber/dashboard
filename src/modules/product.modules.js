@@ -105,6 +105,19 @@ const productSchema = new mongoose.Schema(
                 maxLength: [100, 'Specification value cannot exceed 100 characters']
             }
         }],
+        offerPrice: [{
+            quantity: {
+                type: Number,
+                required: [true, 'quntity is required'],
+                trim: true,
+               
+            },
+            price: {
+                type: Number,
+                required: [true, 'price is required'],
+                trim: true,
+            }
+        }],
         warranty: [
             {
                 period: {

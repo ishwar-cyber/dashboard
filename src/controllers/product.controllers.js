@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 export const createProduct = async(req, res, next)=>{
     try {
-        const {name, model, price, stock, warranty, productWeight, subCategory, description, specifications, category, brand, status} = req.body;
+        const {name, model, price, stock, warranty, productWeight, offerPrice, subCategory, description, specifications, category, brand, status} = req.body;
         let {variants} = req.body; // Changed to let from const
         
         const file = req.files;
@@ -34,8 +34,9 @@ export const createProduct = async(req, res, next)=>{
             error.statusCode = 409;
             throw error;
         }        
-        let saveProduct = new Product({name, price, warranty, variants,productWeight, subCategory, stock, description, specifications, model, category, brand, thumbnail, status});
+        let saveProduct = new Product({name, price, warranty, variants, offerPrice, productWeight, subCategory, stock, description, specifications, model, category, brand, thumbnail, status});
         await saveProduct.save();
+        // const response = await Product.find();
         res.status(200).json({
             success: true,
             message: "add new product",
@@ -49,6 +50,7 @@ export const createProduct = async(req, res, next)=>{
 export const getAllProducts = async(req,res)=>{
     try {
         let products = await Product.find();
+        
         res.status(200).json({
             success: true,
             data: products
