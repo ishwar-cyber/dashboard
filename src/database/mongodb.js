@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
-import { DB_URI, NODE_ENV } from "../../config/env.js";
+import { MONGODB_URL, NODE_ENV } from "../../config/env.js";
 
-if(!DB_URI){
+if(!MONGODB_URL){
     throw new Error("Please define the MONGODB_URI environment variable inside env.local");   
 }
 // mongoose.connect()
 
 const connectToDatabse = async()=>{
     try {
-        await mongoose.connect(DB_URI,{
+        await mongoose.connect(MONGODB_URL,{
             dbName: 'e-commers'
         });
         console.log(`Connect to databse in ${NODE_ENV} mode`);
