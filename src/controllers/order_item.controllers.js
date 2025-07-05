@@ -102,9 +102,6 @@ export const updateCartItem = async (req, res) => {
 
 export const removeCartItem = async (req, res) => {
     const { visitorId, itemId } = req.params;
-    console.log("Visitor ID:", visitorId);
-    console.log("Item ID:", itemId);
-    
     if (!visitorId) {
         return res.status(400).json({ 
             success: false,
@@ -127,9 +124,6 @@ export const removeCartItem = async (req, res) => {
             { $pull: { items: { _id: itemId } } },
             { new: true }
         );
-        
-        console.log("Updated Cart:", updatedCart);
-        
         if (!updatedCart) {
             return res.status(404).json({ 
                 success: false,
@@ -142,8 +136,8 @@ export const removeCartItem = async (req, res) => {
             success: true,
             message: 'Cart item removed successfully',
             data: {
-                cart: updatedCart,
-                removedItemId: itemId
+                removedItemId: itemId,
+                itemCount: updatedCart.items.length // Include item count in response
             }
         });
 
