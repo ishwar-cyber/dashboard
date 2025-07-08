@@ -30,7 +30,7 @@ export const create = async (req, res) => {
 
 export const getBrand = async (req, res) => {
     try {
-        let brands = await Brand.find().lean();
+        let brands = await Brand.find();
         res.status(200).json({
             success: true,
             data: brands

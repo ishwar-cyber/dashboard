@@ -17,8 +17,16 @@ const subCategorySchema = new mongoose.Schema({
         type: String,
         default: true
     }
-}, { timestamps: true, toJSON: { virtuals: true } });
-subCategorySchema.set('toJSON', { virtuals: true });
+}, { timestamps: true });
+subCategorySchema.set('toJSON', 
+        { virtuals: true,  transform: function (doc, ret) {
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
+        }
+    }
+);
+
 
 const SubCategory = mongoose.model('SubCategory', subCategorySchema);
 

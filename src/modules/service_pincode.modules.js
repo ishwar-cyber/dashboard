@@ -17,15 +17,16 @@ const pincodeSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   }
-}, {
-  timestamps: true // This will automatically manage createdAt and updatedAt
-});
-
-// Index for faster queries
-pincodeSchema.index({ pincode: 1 });
-pincodeSchema.index({ district: 1 });
-pincodeSchema.index({ state: 1 });
-
+}, { timestamps: true, toJSON: { virtuals: true } });
+pincodeSchema.set('toJSON', 
+    { virtuals: true, 
+        transform: function (doc, ret) {
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
+        }
+    }
+);
 const Pincode = mongoose.model('Pincode', pincodeSchema);
 
 export default Pincode;

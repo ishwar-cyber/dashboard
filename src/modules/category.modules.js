@@ -9,12 +9,20 @@ const categorySchema = new mongoose.Schema({
         type: String,
     },
     status:{
-        type: String,
+        type: Boolean,
         default: true
     }
 },{ timestamps: true, toJSON: { virtuals: true } });
-categorySchema.set('toJSON', { virtuals: true });
+categorySchema.set('toJSON', 
+    { virtuals: true, 
+        transform: function (doc, ret) {
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
+        }
+    }
+);
 
-const Category = mongoose.model('categories', categorySchema);
+const Category = mongoose.model('Category', categorySchema);
 
 export default Category;

@@ -8,14 +8,10 @@ const productSchema = new mongoose.Schema(
             trim: true,
             maxLength: [100, 'Product name cannot exceed 100 characters']
         },
-        thumbnail: {
+        thumbnail:[{
             type: String,
-            required: [true, 'Thumbnail image required'],
-            // validate: {
-            //     validator: (v) => /^(http|https):\/\/[^ "]+$/.test(v),
-            //     message: props => `${props.value} is not a valid URL!`
-            // }
-        },
+            required: [true, 'Thumbnail; image required']
+        }],
         price: {
             type: Number,
             required: [true, 'Product price required'],
@@ -57,6 +53,9 @@ const productSchema = new mongoose.Schema(
             ref: 'Category', // Changed to singular and capitalized (Mongoose convention)
             required: [true, 'At least one category is required']
         }],
+        pincode :[{
+            type: String,
+        }],
         stock: {
             type: String,
             required: [true, 'Stock is required'],
@@ -72,9 +71,24 @@ const productSchema = new mongoose.Schema(
             trim: true,
             maxLength: [50, 'Model cannot exceed 50 characters']
         },
-        productWeight: {
-            type: String,
+        weight: {
+            type: Number,
             required: [true, 'Product weight is required'],
+            trim: true,
+        },
+        lenght :{
+            type: Number,
+            required: [true, 'Product lenght is required'],
+            trim: true,
+        },
+        width:{
+            type: Number,
+            required: [true, 'Product width is required'],
+            trim: true,
+        },
+        height:{
+            type: Number,
+            required: [true, 'Product hight is required'],
             trim: true,
         },
         subCategory: {

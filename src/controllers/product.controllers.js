@@ -1,13 +1,16 @@
 import Product from "../modules/product.modules.js"
+import Category from "../modules/category.modules.js";
+import Brand from "../modules/brand.modules.js";
+import SubCategory from '../modules/sub_category.modules.js';
 import mongoose from "mongoose";
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 export const createProduct = async(req, res, next)=>{
     try {
-        const {name, model, price, stock, warranty, productWeight, offerPrice, subCategory, description, specifications, category, brand, status} = req.body;
+        const {name, model, price, stock, pincode, warranty, weight, height, width, lenght, offerPrice, subCategory, description, specifications, category, brand, status} = req.body;
         let {variants} = req.body; // Changed to let from const
         
         const file = req.files;
-        const multpleImages = file ? await uploadFiles(file) : null;
+        const multpleImages = file ? await uploadFile(file) : null;
         let thumbnail = null;
         
         if(multpleImages && multpleImages.length > 0) {
@@ -34,7 +37,7 @@ export const createProduct = async(req, res, next)=>{
             error.statusCode = 409;
             throw error;
         }        
-        let saveProduct = new Product({name, price, warranty, variants, offerPrice, productWeight, subCategory, stock, description, specifications, model, category, brand, thumbnail, status});
+        let saveProduct = new Product({name, price, pincode, warranty, variants, offerPrice, weight, height, width, lenght, subCategory, stock, description, specifications, model, category, brand, thumbnail, status});
         await saveProduct.save();
         // const response = await Product.find();
         res.status(200).json({
@@ -47,17 +50,20 @@ export const createProduct = async(req, res, next)=>{
     }
 }
 
-export const getAllProducts = async(req,res)=>{
-    try {
-        let products = await Product.find();
-        
-        res.status(200).json({
-            success: true,
-            data: products
-        })
-    } catch (error) {
-        res.status(500).json({success: false, message: error.message})
-    }
+export const getAllProducts = async (req, res) => {
+  try {
+    const products = await Product.find()
+      .populate('category', 'name')
+      .populate('brand', 'name')
+      .populate('subCategory', 'name');
+
+    res.status(200).json({
+      success: true,
+      data: products
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 export const search = async(req,res)=>{

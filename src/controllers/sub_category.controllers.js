@@ -1,5 +1,6 @@
 
 import SubCategory from '../modules/sub_category.modules.js';
+import Category from "../modules/category.modules.js";
 import { uploadFile } from '../utilities/cloudnary.js';
 
 export const create = async (req, res) => {
@@ -30,7 +31,7 @@ export const create = async (req, res) => {
 
 export const getSubCategories = async (req, res) => {
     try {
-        let subCategories = await SubCategory.find();
+        let subCategories = await SubCategory.find().populate('category', 'name');
         res.status(200).json({
             success: true,
             message: "SubCategories fetched successfully",
