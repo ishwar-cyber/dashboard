@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createProduct, search,getProductByCategoryId, getAllProducts, updateProductById, getProductById, deleteProduct } from "../controllers/product.controllers.js";
-import {authorize, roleBase} from "../middleware/auth.middlerwares.js";
+import { authorize, roleBase } from "../middleware/auth.middlerwares.js";
 import { upload } from "../middleware/multer.middlerwares.js";
 
 const productRouter = Router();
@@ -10,8 +10,8 @@ productRouter.get('/search', search);
 productRouter.get('/:id', getProductById);
 productRouter.post('/', 
     authorize, 
-    roleBase('admin'), 
-    upload.any(),
+    roleBase('admin'),
+    upload.array('thumbnail'),
     createProduct
 );
 productRouter.put('/:id', 

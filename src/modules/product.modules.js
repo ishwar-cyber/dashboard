@@ -10,7 +10,6 @@ const productSchema = new mongoose.Schema(
         },
         thumbnail:[{
             type: String,
-            required: [true, 'Thumbnail; image required']
         }],
         price: {
             type: Number,
@@ -41,10 +40,6 @@ const productSchema = new mongoose.Schema(
                 },
                 variantImage: {
                     type: String,
-                    // validate: {
-                    //     validator: (v) => !v || /^(http|https):\/\/[^ "]+$/.test(v),
-                    //     message: props => `${props.value} is not a valid URL!`
-                    // }
                 }
             }
         ],
@@ -76,7 +71,7 @@ const productSchema = new mongoose.Schema(
             required: [true, 'Product weight is required'],
             trim: true,
         },
-        lenght :{
+        length :{
             type: Number,
             required: [true, 'Product lenght is required'],
             trim: true,

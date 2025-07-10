@@ -6,11 +6,13 @@ import mongoose from "mongoose";
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 export const createProduct = async(req, res, next)=>{
     try {
-        const {name, model, price, stock, pincode, warranty, weight, height, width, lenght, offerPrice, subCategory, description, specifications, category, brand, status} = req.body;
+        const {name, model, price, stock, pincode, warranty, weight, height, width, length, offerPrice, subCategory, description, specifications, category, brand, status} = req.body;
         let {variants} = req.body; // Changed to let from const
+        console.log('145', req.body);
         
         const file = req.files;
-        const multpleImages = file ? await uploadFile(file) : null;
+        console.log('imahges',  req.files);
+        const multpleImages = file ? await uploadFiles(file) : null;
         let thumbnail = null;
         
         if(multpleImages && multpleImages.length > 0) {
@@ -22,6 +24,8 @@ export const createProduct = async(req, res, next)=>{
             }
             
             // Handle variants if they exist
+            console.log('files',variants);
+            
             if(variants && variants.length > 0) {
                 const variantImages = multpleImages.slice(1); // Skip first image (thumbnail)
                 variants = variants.map((variant, index) => ({
@@ -37,7 +41,7 @@ export const createProduct = async(req, res, next)=>{
             error.statusCode = 409;
             throw error;
         }        
-        let saveProduct = new Product({name, price, pincode, warranty, variants, offerPrice, weight, height, width, lenght, subCategory, stock, description, specifications, model, category, brand, thumbnail, status});
+        let saveProduct = new Product({name, price, pincode, warranty, variants, offerPrice, weight, height, width, length, subCategory, stock, description, specifications, model, category, brand, thumbnail, status});
         await saveProduct.save();
         // const response = await Product.find();
         res.status(200).json({
@@ -49,20 +53,54 @@ export const createProduct = async(req, res, next)=>{
         next(error)
     }
 }
-
 export const getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find()
-      .populate('category', 'name')
-      .populate('brand', 'name')
-      .populate('subCategory', 'name');
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-    res.status(200).json({
+    // Sorting
+    const sortBy = req.query.sortBy || 'createdAt';
+    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
+
+    // Searching (optional)
+    const searchQuery = {};
+    if (req.query.search) {
+      searchQuery.$or = [
+        { name: { $regex: req.query.search, $options: 'i' } },
+        { description: { $regex: req.query.search, $options: 'i' } }
+      ];
+    }
+
+    // Filtering by category (optional)
+    if (req.query.category) {
+      searchQuery.category = req.query.category;
+    }
+
+    const products = await Product.find(searchQuery).populate('category', 'name')
+      .populate('brand', 'name')
+      .populate('subCategory', 'name')
+      .sort({ [sortBy]: sortOrder })
+      .skip(skip)
+      .limit(limit);
+
+    const totalProducts = await Product.countDocuments(searchQuery);
+    const totalPages = Math.ceil(totalProducts / limit);
+
+    res.json({
       success: true,
+      count: products.length,
+      page,
+      totalPages,
+      totalProducts,
       data: products
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
+    });
   }
 };
 
