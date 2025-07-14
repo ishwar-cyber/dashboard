@@ -3,10 +3,10 @@ import { JWT_SECRET } from "../../config/env.js";
 import User from "../modules/user.modules.js";
 
 // Middleware for authentication
-const authorize = async (req, res, next) => {
+const authenticate = async (req, res, next) => {
     try {
         let token;
-       let authToken =  req.headers.authorization ? req.headers.authorization : req.headers.authtoken ? req.headers.authtoken : null;
+        let authToken =  req.headers.authorization ? req.headers.authorization : req.headers.authtoken ? req.headers.authtoken : null;
         if ((authToken.startsWith('Bearer'))) token = authToken.split(' ')[1];
         if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
@@ -27,7 +27,10 @@ const roleBase = (role) => {
         if (!req.user) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
-        if (req.user.isRole !== role) {
+        console.log('whay is the role', role[0]);
+        console.log('req role', req.user.isRole === role);
+        
+        if (req.user.isRole !== role[0]) {
             return res.status(403).json({ message: 'You do not have permission to access this resource.' });
         }
         next();
@@ -35,4 +38,4 @@ const roleBase = (role) => {
 };
 
 // Export both functions
-export { authorize, roleBase };
+export { authenticate, roleBase };

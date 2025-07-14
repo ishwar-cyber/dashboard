@@ -10,9 +10,11 @@ export const createProduct = async(req, res, next)=>{
         let {variants} = req.body; // Changed to let from const
         console.log('145', req.body);
         
-        const file = req.files;
-        console.log('imahges',  req.files);
+        const file = req.files['productImages'];
+        console.log('imahges', req.files);
         const multpleImages = file ? await uploadFiles(file) : null;
+        console.log('product image', multpleImages);
+        
         let thumbnail = null;
         
         if(multpleImages && multpleImages.length > 0) {
@@ -278,3 +280,8 @@ export const updateProductById = async (req, res) => {
         });
     }
 };
+
+export const uploadImages = async(req, res)=>{
+    console.log('images product',req.body);
+    
+}

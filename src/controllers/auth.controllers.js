@@ -73,46 +73,6 @@ export const signIn = async(req, res, next)=>{
     }
 }
 
-export const signIn1 = async (req, res, next) => {
-    try {
-        const { email, password } = req.body;
-
-        // // Validate input
-        // if (!email || !password) {
-        //     return res.status(400).json({ success: false, message: "Email and password are required." });
-        // }
-
-        // Find user
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(404).json({ success: false, message: "User not found." });
-        }
-
-        // Check password
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            return res.status(401).json({ success: false, message: "Invalid password." });
-        }
-
-        // Generate JWT token
-        const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: JWT_EXP_IN });
-
-        // Send response (remove password from user object)
-        res.status(200).json({
-            success: true,
-            message: "User signed in successfully",
-            token,
-            user: {
-                _id: user._id,
-                email: user.email,
-                name: user.name, // Assuming there’s a name field
-            }
-        });
-    } catch (error) {
-        next(error); // Pass error to the global error handler
-    }
-};
-
 export const signOut = async(req, res, next)=>{
     
 }

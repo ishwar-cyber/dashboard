@@ -8,7 +8,7 @@ const productSchema = new mongoose.Schema(
             trim: true,
             maxLength: [100, 'Product name cannot exceed 100 characters']
         },
-        thumbnail:[{
+        productImages:[{
             type: String,
         }],
         price: {
