@@ -27,10 +27,10 @@ const roleBase = (role) => {
         if (!req.user) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
-        console.log('whay is the role', role[0]);
+        console.log('whay is the role', role);
         console.log('req role', req.user.isRole === role);
         
-        if (req.user.isRole !== role[0]) {
+        if (req.user.isRole !== role) {
             return res.status(403).json({ message: 'You do not have permission to access this resource.' });
         }
         next();

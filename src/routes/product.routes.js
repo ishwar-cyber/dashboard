@@ -11,8 +11,8 @@ productRouter.get('/:id', getProductById);
 productRouter.post('/', 
     authenticate, 
     roleBase('admin'),
-    upload.fields([{ name: 'productImages', maxCount: 10 },
-    { name: 'variantImages', maxCount: 10 } ]),
+    upload.array(
+    { name: 'variantImages', maxCount: 2 }),
     createProduct
 );
 productRouter.put('/:id', 
@@ -23,7 +23,8 @@ productRouter.put('/:id',
 );
 productRouter.delete('/:id',authenticate, roleBase('admin'), deleteProduct);
 productRouter.get('/category/:id', getProductByCategoryId);
-productRouter.post('/images',upload.fields([{ name: 'productImages', maxCount: 10 }]), uploadImages)
+productRouter.post('/images',upload.fields([{ name: 'productImages', maxCount: 10 }]), uploadImages);
+
 export default productRouter;
 
 // upload.fields([

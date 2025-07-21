@@ -30,12 +30,16 @@ const uploadFile = async (file) => {
 };
 
 const uploadFiles = async (files) => {
+    console.log('filessssss0', files);
+    
     try {
         if (!files || files.length === 0) return null;
         const urls = [];
         for (const file of files) {
             try {
                 const result = await cloudinary.uploader.upload(file.path);
+                console.log('result url', result);
+                
                 urls.push(result.url);
                 // Delete local file after successful upload
                 if (fs.existsSync(file.path)) {

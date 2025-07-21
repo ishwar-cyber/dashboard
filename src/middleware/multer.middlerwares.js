@@ -1,11 +1,6 @@
 import multer from "multer";
 import path from "path";
 
-const FILE_TYPES_MAP ={
-    'image/png':'png',
-    'image/jpeg':'jpeg',
-    'image/jpg':'jpg'
-}
 // Set storage engine
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {

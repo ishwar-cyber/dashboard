@@ -6,33 +6,28 @@ import mongoose from "mongoose";
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 export const createProduct = async(req, res, next)=>{
     try {
-        const {name, model, price, stock, pincode, warranty, weight, height, width, length, offerPrice, subCategory, description, specifications, category, brand, status} = req.body;
+        const {name, model, price, stock, productImages,  pincode, warranty, weight, height, width, length, offerPrice, subCategory, description, specifications, category, brand, status} = req.body;
         let {variants} = req.body; // Changed to let from const
-        console.log('145', req.body);
         
-        const file = req.files['productImages'];
-        console.log('imahges', req.files);
-        const multpleImages = file ? await uploadFiles(file) : null;
-        console.log('product image', multpleImages);
+        // const productImage = req.files['productImages'];
+        // const productImages = file ? await uploadFiles(productImage) : null;
+        const variant = req.files['variants[0][variantImage]'];
+        const variantImages = variant ? await uploadFiles(variant) : null;
         
-        let thumbnail = null;
-        
-        if(multpleImages && multpleImages.length > 0) {
-            thumbnail = multpleImages[0];
-            
+        if(variantImages && variantImages.length > 0) {   
             // Parse variants if it's a string
             if (typeof variants === 'string') {
                 variants = JSON.parse(variants || '[]');
             }
             
             // Handle variants if they exist
-            console.log('files',variants);
+            // console.log('files',variants);
             
             if(variants && variants.length > 0) {
-                const variantImages = multpleImages.slice(1); // Skip first image (thumbnail)
+                const variantImage = variantImages.slice(1); // Skip first image (thumbnail)
                 variants = variants.map((variant, index) => ({
                     ...variant,
-                    variantImage: variantImages[index] || null
+                    variantImage: variantImage[index] || null
                 }));
             }
         }
@@ -43,8 +38,13 @@ export const createProduct = async(req, res, next)=>{
             error.statusCode = 409;
             throw error;
         }        
-        let saveProduct = new Product({name, price, pincode, warranty, variants, offerPrice, weight, height, width, length, subCategory, stock, description, specifications, model, category, brand, thumbnail, status});
+
+        console.log('product iamhe knkhf', productImages);
+        
+        let saveProduct = new Product({name, price, pincode, warranty, variants, offerPrice, weight, height, width, length, subCategory, stock, description, specifications, model, category, brand, productImages, status});
         await saveProduct.save();
+        console.log('save product', saveProduct);
+        
         // const response = await Product.find();
         res.status(200).json({
             success: true,
@@ -282,6 +282,15 @@ export const updateProductById = async (req, res) => {
 };
 
 export const uploadImages = async(req, res)=>{
-    console.log('images product',req.body);
+    const file = req.files['productImages'];
+    console.log('product image', file);
+
+    const productImages = file ? await uploadFiles(file) : null;
+    console.log('product images', productImages);
     
+    res.status(200).json({
+        success: true,
+        message: "url created",
+        data: productImages,
+    });
 }

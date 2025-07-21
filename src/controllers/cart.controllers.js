@@ -8,13 +8,18 @@ import { validateObjectId } from '../utilities/validation.js';
  * @access  Private/Public
  */
 export const addToCart = async (req, res) => {
+    console.log('product id req', req.body.items[0]);
+    
     try {
-        const { productId, quantity = 1, options = {} } = req.body;
+        // console.log('productId', req.body);
+        
+        const { productId, quantity = 1 } = req.body.items[0];
         const { visitorId } = req.params;
         const userId = req.user?._id;
-
+        // console.log('productId',productId);
+        
         // Validate input
-        if (!productId || !validateObjectId(productId)) {
+        if (!productId) {
             return res.status(400).json({
                 success: false,
                 message: 'Valid product ID is required'
@@ -34,9 +39,10 @@ export const addToCart = async (req, res) => {
                 message: 'Quantity must be between 1 and 999'
             });
         }
-
+        console.log('find product id', productId);
+        
         // Check if product exists and is available
-        const product = await Product.findById(productId);
+        const product = await Product.exists({ _id: productId });
         if (!product) {
             return res.status(404).json({
                 success: false,
@@ -52,19 +58,22 @@ export const addToCart = async (req, res) => {
         }
 
         // Find or create cart
-        let cart = await Cart.findByUser(userId, visitorId);
+        let cart = await Cart.findOne({ user: userId });;
         
         if (!cart) {
             cart = new Cart({
                 userId,
-                visitorId,
                 items: [],
                 currency: 'INR'
             });
         }
 
         // Add item to cart
-        cart.addItem(productId, quantity, product.price, options);
+        cart.items.push({
+            product: productId,
+            quantity,
+            price: product.price
+        });
         await cart.save();
 
         // Populate product details
@@ -86,7 +95,7 @@ export const addToCart = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Add to cart error:', error);
+        // console.error('Add to cart error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to add item to cart',
@@ -411,7 +420,7 @@ export const mergeGuestCart = async (req, res) => {
                 guestItem.product,
                 guestItem.quantity,
                 guestItem.price,
-                guestItem.selectedOptions
+                
             );
         }
 
