@@ -8,6 +8,10 @@ const categorySchema = new mongoose.Schema({
     image:{
         type: String,
     },
+    serviceCharges:{
+        type: Number,
+        default: 0
+    },
     status:{
         type: Boolean,
         default: true

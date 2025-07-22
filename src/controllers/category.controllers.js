@@ -2,7 +2,7 @@ import Category from "../modules/category.modules.js";
 import { uploadFile } from "../utilities/cloudnary.js";
 export const create = async (req, res) => {
     try {
-        const { name,status } = req.body;
+        const { name, status, serviceCharges } = req.body;
         const file = req.file; // Access the uploaded file from Multer
         const image = file ? await uploadFile(file.path) : null; // Upload to Cloudinary if file exists
         
@@ -13,7 +13,7 @@ export const create = async (req, res) => {
             error.statusCode = 409;
             throw error;
         }
-        let category = new Category({name, image, status});
+        let category = new Category({name, image, serviceCharges, status});
         await category.save();
         res.status(200).json({
             success: true,
