@@ -31,3 +31,28 @@ export const getPincode = async(req, res) =>{
         
     }
 }
+
+export const deletePincode = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const deletedPincode = await Pincode.findByIdAndDelete(id);
+        if (!deletedPincode) {
+            return res.status(404).json({
+                success: false,
+                message: 'Pincode not found',
+                data: null
+            });
+        }
+        res.status(200).json({
+            success: true,
+            message: 'Pincode deleted successfully',
+            data: deletedPincode
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete pincode',
+            error: error.message
+        });
+    }
+}
