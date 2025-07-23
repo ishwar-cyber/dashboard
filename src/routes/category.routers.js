@@ -6,7 +6,7 @@ import { authenticate, roleBase } from "../middleware/auth.middlerwares.js";
 const categoryRouter = express.Router();
 
 categoryRouter.post('/', authenticate,roleBase('admin'), upload.single('image'), create);
-categoryRouter.get('/', getCategories);
+categoryRouter.get('/', authenticate, getCategories);
 categoryRouter.delete('/:id', authenticate, roleBase('admin'), deleteById);
 categoryRouter.put('/:id', authenticate, roleBase('admin'), upload.single('image'), updateCategory);
 categoryRouter.get('/:id', authenticate, roleBase('admin'), getCategories);

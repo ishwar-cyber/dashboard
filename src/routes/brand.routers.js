@@ -7,7 +7,7 @@ import { authenticate, roleBase } from "../middleware/auth.middlerwares.js";
 const brandRouter = express.Router();
 
 brandRouter.post('/', authenticate, roleBase('admin'), upload.single('image'), create);
-brandRouter.get('/', getBrand);
+brandRouter.get('/',authenticate, getBrand);
 
 
 export default brandRouter;

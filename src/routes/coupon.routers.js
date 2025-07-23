@@ -6,7 +6,7 @@ import { authenticate, roleBase } from '../middleware/auth.middlerwares.js';
 const couponRouter = router.Router();
 
 couponRouter.post('/', authenticate, roleBase('admin'), createCoupon);
-couponRouter.get('/', getCoupons);
+couponRouter.get('/', authenticate, getCoupons);
 couponRouter.put('/:id', authenticate, roleBase('admin'), createCoupon);
 couponRouter.delete('/:id', authenticate, roleBase('admin'), deleteCoupon);
 couponRouter.get('/search/:code', getCoupons);

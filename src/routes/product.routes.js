@@ -5,7 +5,7 @@ import { upload } from "../middleware/multer.middlerwares.js";
 
 const productRouter = Router();
 
-productRouter.get('/', getAllProducts);
+productRouter.get('/', authenticate, getAllProducts);
 productRouter.get('/search', search);
 productRouter.get('/:id', getProductById);
 productRouter.post('/', 
@@ -22,7 +22,7 @@ productRouter.put('/:id',
     updateProductById
 );
 productRouter.delete('/:id',authenticate, roleBase('admin'), deleteProduct);
-productRouter.get('/category/:id', getProductByCategoryId);
+productRouter.get('/category/:id', authenticate, getProductByCategoryId);
 productRouter.post('/images',upload.fields([{ name: 'productImages', maxCount: 10 }]), uploadImages);
 
 export default productRouter;
