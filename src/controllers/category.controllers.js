@@ -1,24 +1,22 @@
 import Category from "../modules/category.modules.js";
+import { createCategory } from "../services/category.service.js";
 import { uploadFile } from "../utilities/cloudnary.js";
 export const create = async (req, res) => {
     try {
-        const { name, status, serviceCharges } = req.body;
-        const file = req.file; // Access the uploaded file from Multer
-        const image = file ? await uploadFile(file.path) : null; // Upload to Cloudinary if file exists
-        
-
-        const existingCategory = await Category.findOne({name});
-        if (existingCategory) {
-            const error = new Error("Category already exists");
-            error.statusCode = 409;
-            throw error;
+        const categoryData = {...req.body};
+        if(req.file){
+            const result = await uploadFile(req.file.path);
+            categoryData.image = {
+                url: result.url,
+                public_id: result.public_id
+            }
         }
-        let category = new Category({name, image, serviceCharges, status});
-        await category.save();
+
+        
         res.status(200).json({
             success: true,
             message: "Category added successfully",
-            data: category
+            data: await createCategory(categoryData)
         });
 
     } catch (error) {

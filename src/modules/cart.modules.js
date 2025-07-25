@@ -1,11 +1,30 @@
 import mongoose from "mongoose";
-
-const cartItemSchema = new mongoose.Schema({
-    productId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'product',
+const Schema = mongoose.Schema;
+const CartItemSchema = new Schema({
+    product: {
+        type: Schema.Types.ObjectId,
+        ref: 'Product', // should match the model name
         required: true,
         index: true
+    },
+    name: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    image: {
+        type: String,
+        trim: true
+    },
+    price: {
+        type: Number,
+        required: true,
+        min: [0, 'Price cannot be negative']
+    },
+    discount: {
+        type: Number,
+        default: 0,
+        min: [0, 'Discount cannot be negative']
     },
     quantity: {
         type: Number,
@@ -30,32 +49,7 @@ const cartSchema = new mongoose.Schema({
         required: true,
         index: true
     },
-    items: [cartItemSchema],
-    subtotal: {
-        type: Number,
-        default: 0,
-        min: [0, 'Subtotal cannot be negative']
-    },
-    tax: {
-        type: Number,
-        default: 0,
-        min: [0, 'Tax cannot be negative']
-    },
-    shipping: {
-        type: Number,
-        default: 0,
-        min: [0, 'Shipping cannot be negative']
-    },
-    total: {
-        type: Number,
-        default: 0,
-        min: [0, 'Total cannot be negative']
-    },
-    currency: {
-        type: String,
-        default: 'USD',
-        enum: ['USD', 'EUR', 'GBP', 'INR']
-    },
+    items: [CartItemSchema],
     isActive: {
         type: Boolean,
         default: true
@@ -68,19 +62,34 @@ const cartSchema = new mongoose.Schema({
     }
 }, { 
     timestamps: true,
-    collection: 'carts'
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
 });
-
-// Indexes for better performance
-cartSchema.index({ visitorId: 1, isActive: 1 });
-cartSchema.index({ userId: 1, isActive: 1 });
-cartSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 // Virtual for item count
 cartSchema.virtual('itemCount').get(function() {
     return this.items.reduce((total, item) => total + item.quantity, 0);
 });
 
+cartSchema.virtual('subTotal').get(function() {
+   return this.items.reduce((total, item) => {
+        const discountedPrice = item.price * (1 - (item.discount || 0) / 100);
+        return total + (discountedPrice * item.quantity);
+    }, 0);
+});
+
+// Virtual for total discount
+cartSchema.virtual('totalDiscount').get(function() {
+    return this.items.reduce((total, item) => {
+        const itemDiscount = item.price * (item.discount || 0) / 100 * item.quantity;
+        return total + itemDiscount;
+    }, 0);
+});
+
+// Virtual for total price of each item
+CartItemSchema.virtual('total').get(function() {
+    return this.subTotal - this.totalDiscount;
+});
 
 // JSON transformation
 cartSchema.set('toJSON', {

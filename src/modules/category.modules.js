@@ -1,23 +1,42 @@
 import mongoose from "mongoose";
 
-const categorySchema = new mongoose.Schema({
+const CategorySchema = new mongoose.Schema({
     name:{
         type: String,
-        required:[true, 'Category is Requied']
+        required:[true, 'Category name is Required'],
+        trim: true
     },
     image:{
+        url: String,
+        public_id: String
+    },
+    slug:{
         type: String,
+        lowercase: true,
+        unique: true,
+        index: true
     },
     serviceCharges:{
         type: Number,
         default: 0
     },
-    status:{
+    isActive:{
         type: Boolean,
         default: true
-    }
-},{ timestamps: true, toJSON: { virtuals: true } });
-categorySchema.set('toJSON', 
+    },
+    metaTitle: String,
+    metaDescription: String,
+},{ timestamps: true,
+     toJSON: { virtuals: true },
+     toObject:{ virtuals: true}
+});
+
+CategorySchema.virtual('products', {
+    ref: 'Product',
+    localField: '_id',
+    foreignField: 'category'
+})
+CategorySchema.set('toJSON', 
     { virtuals: true, 
         transform: function (doc, ret) {
             ret.id = ret._id;
@@ -27,6 +46,6 @@ categorySchema.set('toJSON',
     }
 );
 
-const Category = mongoose.model('Category', categorySchema);
+const Category = mongoose.model('Category', CategorySchema);
 
 export default Category;

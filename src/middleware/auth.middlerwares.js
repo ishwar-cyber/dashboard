@@ -3,7 +3,7 @@ import { JWT_SECRET } from "../../config/env.js";
 import User from "../modules/user.modules.js";
 
 // Middleware for authentication
-const authenticate = async (req, res, next) => {
+const tokenVerify = async (req, res, next) => {
     try {
         let token;
         let authToken =  req.headers.authorization ? req.headers.authorization : req.headers.authtoken ? req.headers.authtoken : null;
@@ -22,7 +22,7 @@ const authenticate = async (req, res, next) => {
 };
 
 // Middleware for role-based authorization
-const roleBase = (role) => {
+const role = (role) => {
     return (req, res, next) => {
         if (!req.user) {
             return res.status(401).json({ message: 'Unauthorized' });
@@ -38,4 +38,4 @@ const roleBase = (role) => {
 };
 
 // Export both functions
-export { authenticate, roleBase };
+export { tokenVerify, role };

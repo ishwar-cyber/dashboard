@@ -1,22 +1,30 @@
 import mongoose from "mongoose";
 
-const brandSchema = new mongoose.Schema({
+const BrandSchema = new mongoose.Schema({
     name:{
         type: String,
-        required:[true, 'Brand is Requied']
+        required:[true, 'Brand name is Required'],
+        unique: true,
+        trim: true
+    },
+    slug:{
+        type: String,
+        lowercase: true,
+        unique: true,
+        index: true
     },
     image:{
-        type: String,
+        url: String,
+        public_id: String
     },
-    status:{
+    isActive:{
         type: Boolean,
         default: true
     },
-    description:{
-        type: String,
-    },
-},{ timestamps: true, toJSON: { virtuals: true } });
-brandSchema.set('toJSON', { virtuals: true,
+    metaTitle: String,
+    metaDescription: String,
+},{ timestamps: true, toJSON: { virtuals: true }, toObject:{virtuals: true} });
+BrandSchema.set('toJSON', { virtuals: true,
     transform: function (doc, ret) {
         ret.id = ret._id;
         delete ret._id;
@@ -24,6 +32,12 @@ brandSchema.set('toJSON', { virtuals: true,
     }
  });
 
-const Brand = mongoose.model('Brand', brandSchema);
+ BrandSchema.virtual('products', {
+    ref: 'Product',
+    localField: '_id',
+    foreignField: 'brand'
+ })
+
+const Brand = mongoose.model('Brand', BrandSchema);
 
 export default Brand;

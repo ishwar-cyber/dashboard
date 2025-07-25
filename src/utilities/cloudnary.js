@@ -14,7 +14,10 @@ const uploadFile = async (file) => {
     try {
         if (!file) return null;
         const response = await cloudinary.uploader.upload(file);
-        return response.url;    
+        return {
+            url: response.url,
+            public_id: response.public_id
+        }; 
     } catch (error) {
         // Check if the file exists before trying to delete it
         if (fs.existsSync(file)) {
@@ -57,4 +60,15 @@ const uploadFiles = async (files) => {
         return null;
     }
 };
-export { uploadFile, uploadFiles };
+
+
+const deleteFile = async(publicId) =>{
+    console.log('publicId', publicId);
+    
+    try {
+        return await cloudinary.uploader.destroy(publicId);
+    } catch (error) {
+        throw new Error(`File deleting failed:${error.message}`);
+    }
+}
+export { uploadFile, uploadFiles, deleteFile };

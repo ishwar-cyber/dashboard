@@ -1,9 +1,16 @@
 import mongoose from "mongoose";
 
-const subCategorySchema = new mongoose.Schema({
+const SubCategorySchema = new mongoose.Schema({
     name: {
         type: String,
-        required: [true, 'Subcategory is Required']
+        required: [true, 'Subcategory name is Required'],
+        trim: true
+    },
+    slug:{
+        type: String,
+        lowercase: true,
+        unique: true,
+        index: true
     },
     category: {
         type: mongoose.Schema.Types.ObjectId,
@@ -13,21 +20,20 @@ const subCategorySchema = new mongoose.Schema({
     image: {
         type: String,
     },
-    status: {
+    isActive: {
         type: Boolean,
         default: true
-    }
-}, { timestamps: true });
-subCategorySchema.set('toJSON', 
-        { virtuals: true,  transform: function (doc, ret) {
-            ret.id = ret._id;
-            delete ret._id;
-            delete ret.__v;
-        }
-    }
-);
+    },
+    metaTitle: String,
+    metaDescription: String,
+}, { timestamps: true,toJSON: {virtuals: true}, toObject: { virtuals: true} });
 
 
-const SubCategory = mongoose.model('SubCategory', subCategorySchema);
+SubCategorySchema.virtual('products',{
+    ref: 'Product',
+    localField: '_id',
+    foreignField: 'subCategory'
+});
+const SubCategory = mongoose.model('SubCategory', SubCategorySchema);
 
 export default SubCategory;

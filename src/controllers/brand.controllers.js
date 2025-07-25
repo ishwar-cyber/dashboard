@@ -1,24 +1,23 @@
 import Brand from "../modules/brand.modules.js";
-import { uploadFile } from "../utilities/cloudnary.js";
-
-export const create = async (req, res) => {
+import { uploadFile, deleteFile } from "../utilities/cloudnary.js";
+import {createBrand, getAllBrands, getBrandById, deleteBrandById} from "../services/brand.service.js"
+export const create = async (req, res, next) => {
     try {
-        const { name, status, description } = req.body;
-        const file = req.file; // Access the uploaded file from Multer
-        const image = file ? await uploadFile(file.path) : null; // Upload to Cloudinary if file exists
-        let existingBrand = await Brand.findOne({ name });
-        if (existingBrand) {
-            const error = new Error("Brand is already created");
-            error.statusCode = 409;
-            throw error;
+        let brandData  = {...req.body};
+        if(req.file){
+            const result = await uploadFile(req.file.path);
+            console.log('brand image', result);
+            
+            brandData.image = {
+                url: result.url,
+                public_id: result.public_id
+            }
         }
-
-        let brand = new Brand({ name, image, status, description });
-        await brand.save();
+        let brand =  await createBrand(brandData);
         res.status(200).json({
             success: true,
             message: 'Brand is created',
-            data: brand
+            brand
         });
     } catch (error) {
         res.status(error.statusCode || 500).json({
@@ -28,38 +27,38 @@ export const create = async (req, res) => {
     }
 };
 
-export const getBrand = async (req, res) => {
+export const getBrands = async (req, res, next) => {
     try {
-        let brands = await Brand.find();
+        const options = {
+            page: req.query.page,
+            limit: req.query.limit,
+            search: req.query.search,
+            featured: req.query.featured,
+            active: req.query.active,
+            sortBy: req.query.sortBy,
+            sortOrder: req.query.sortOrder
+        };
+        
+        let brands = await getAllBrands(options);
         res.status(200).json({
             success: true,
             data: brands
         });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+       next(error);
     }
 }
 
-export const getBrandById = async (req, res) => {
+export const getBrand = async (req, res) => {
     try {
-        let brand = await Brand.findById(req.params.id);
-        if (!brand) {
-            const error = new Error('Brand not found');
-            error.statusCode = 404;
-            throw error;
-        }
+        let brand = await getBrandById(req.params.id);
+       
         res.status(200).json({
             success: true,
             data: brand
         });
     } catch (error) {
-        res.status(error.statusCode || 500).json({
-            success: false,
-            message: error.message || 'Internal Server Error'
-        });
+       next(error)
     }
 }
 
@@ -103,14 +102,14 @@ export const updateBrand = async (req, res) => {
 export const deleteBrand = async (req, res) => {
     try {
         const id = req.params.id;
-        let brand = await Brand.findByIdAndDelete(id);
-        if (!brand) {
-            const error = new Error('Brand not found');
-            error.statusCode = 404;
-            throw error;
+        let brand = await getBrandById(id);
+        if (brand.image && brand.image.public_id) {
+            await deleteFile(brand.image.public_id);
         }
+        await deleteBrandById(id);
         res.status(200).json({
             success: true,
+            data: {},
             message: 'Brand is deleted'
         });
     } catch (error) {

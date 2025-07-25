@@ -1,0 +1,44 @@
+import Product from "../modules/product.modules.js";
+
+export const calculatedCart = async(cart) => {
+    if(!cart) return null;
+    try {
+        const calculateCart = JSON.parse(JSON.stringify(cart));
+        let itemCount = 0;
+        let subTotal = 0;
+        let totalDiscount = 0;
+
+        if(calculateCart.items && calculateCart.items.length > 0){
+            calculateCart.items = calculateCart.items.map(item =>{              
+                const discountedPrice = item.price * (1-(item.discount || 0) / 100);
+
+                const totalPrice = discountedPrice * item.quantity;
+
+                itemCount += item.quantity;
+                subTotal += (item.price * item.quantity);
+                const itemDiscount = item.price * ((item.discount || 0) / 100) * item.quantity;
+                totalDiscount += itemDiscount;
+            
+                return {
+                    ...item,
+                    totalPrice
+                };
+            });
+        }
+        const total = subTotal - totalDiscount;
+         // Update the cart with calculated values
+        
+        return {
+            ...calculateCart,
+            calculations:{
+                itemCount,
+                subTotal,
+                totalDiscount,
+                total
+            }
+        };
+    } catch (error) {
+        console.error(`Error calculating cart: ${error.message}`);
+        return null;
+    }
+}

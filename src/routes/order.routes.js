@@ -7,7 +7,7 @@ import {
     cancelOrder,
     getUserOrders
 } from '../controllers/order.controllers.js';
-import { authenticate, roleBase } from '../middleware/auth.middlerwares.js';
+import { tokenVerify, role } from '../middleware/auth.middlerwares.js';
 
 const orderRouter = Router();
 
@@ -16,41 +16,41 @@ const orderRouter = Router();
  * @desc    Create new order
  * @access  Private
  */
-orderRouter.post('/', authenticate, createOrder);
+orderRouter.post('/', tokenVerify, createOrder);
 
 /**
  * @route   GET /api/orders
  * @desc    Get all orders (Admin only)
  * @access  Private/Admin
  */
-orderRouter.get('/',authenticate, roleBase(['admin']), getAllOrders);
+orderRouter.get('/', tokenVerify, role(['admin']), getAllOrders);
 
 /**
  * @route   GET /api/orders/user/me
  * @desc    Get current user's orders
  * @access  Private
  */
-orderRouter.get('/user/me', authenticate, getUserOrders);
+orderRouter.get('/user/me', tokenVerify, getUserOrders);
 
 /**
  * @route   GET /api/orders/:orderId
  * @desc    Get order by ID
  * @access  Private
  */
-orderRouter.get('/:orderId', authenticate, getOrderById);
+orderRouter.get('/:orderId', tokenVerify, getOrderById);
 
 /**
  * @route   PUT /api/orders/:orderId/status
  * @desc    Update order status (Admin only)
  * @access  Private/Admin
  */
-orderRouter.put('/:orderId/status', authenticate, roleBase(['admin']), updateOrderStatus);
+orderRouter.put('/:orderId/status', tokenVerify, role(['admin']), updateOrderStatus);
 
 /**
  * @route   PUT /api/orders/:orderId/cancel
  * @desc    Cancel order
  * @access  Private
  */
-orderRouter.put('/:orderId/cancel', authenticate, cancelOrder);
+orderRouter.put('/:orderId/cancel', tokenVerify, cancelOrder);
 
 export default orderRouter; 

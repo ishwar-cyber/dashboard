@@ -1,71 +1,104 @@
 import mongoose from "mongoose";
 
-const productSchema = new mongoose.Schema(
+const Schema = mongoose.Schema;
+const VariantSchema = new Schema(
+    {
+        name:{
+            type: String,
+            trim:true
+        },
+        sku:{
+            type: String,
+            trim:true
+        },
+        price:{
+            type: Number,
+            min: 0,
+        },
+        stock: {
+            type: Number,
+            min:0,
+            default: 0
+        },
+        image:{
+            type: String
+        }    
+    },{
+        _id: true
+    });
+const ProductSchema = new Schema(
     {
         name: {
             type: String,
             required: [true, 'Product name is required'],
-            trim: true,
-            maxLength: [100, 'Product name cannot exceed 100 characters']
+            trim: true
         },
-        productImages:[{
+        images:[{
             type: String,
         }],
+        discount:{
+            type: Number,
+            min: 0,
+            max: 100,
+            default:0
+        },
+        slug:{
+            type: String,
+            required: true,
+            trim: true,
+            lowercase: true,
+            unique: true,
+            index: true,
+        },
         price: {
             type: Number,
             required: [true, 'Product price required'],
             min: [0, 'Price must be greater than 0'],
             max: [1000000, 'Price seems too high']
         },
-        variants: [
-            {
-                variantName: {
-                    type: String,
-                    required: [true, 'Variant name is required'],
-                    trim: true,
-                    maxLength: [1000,'Variant name cannot exceed 50 characters']
-                },
-                sku: {
-                    type: String,
-                    trim: true,
-                    maxLength: [50, 'Variant name cannot exceed 50 characters']
-                },
-                price: {
-                    type: Number,
-                    min: [0, 'Price must be greater than 0']
-                },
-                stock: {
-                    type: Number,
-                    min: [0, 'Stock cannot be negative']
-                },
-                variantImage: {
-                    type: String,
-                }
-            }
-        ],
+        variants: [VariantSchema],
         category: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Category', // Changed to singular and capitalized (Mongoose convention)
             required: [true, 'At least one category is required']
         }],
         pincode :[{
-            type: String,
+            type: Number,
         }],
         stock: {
-            type: String,
+            type: Number,
             required: [true, 'Stock is required'],
+            min:0,
+            default: 0
         },
         description: {
             type: String,
             required: [true, 'Description is required'],
             maxLength: [2000, 'Description cannot exceed 2000 characters']
         },
-        model: {
+        sku: {
             type: String,
             required: [true, 'Model is required'],
             trim: true,
+            unique: true,
             maxLength: [50, 'Model cannot exceed 50 characters']
         },
+        featured:{
+            type: Boolean,
+            default: false
+        },
+        bestSeller:{
+            type: Boolean,
+            default: false
+        },
+        tag:[String],
+        rating:{
+            type: Number,
+            default: 0,
+            min: 0,
+            max: 5
+        },
+        
         weight: {
             type: Number,
             required: [true, 'Product weight is required'],
@@ -89,12 +122,12 @@ const productSchema = new mongoose.Schema(
         subCategory: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'SubCategory', // Changed to singular and capitalized
-            required: [true, 'Subcategory is required']
+            required: [true, 'Subcategory name is required']
         },
         brand: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Brand', // Changed to singular and capitalized
-            required: [true, 'Brand is required']
+            required: [true, 'Brand name is required']
         },
         status: {
             type: Boolean,
@@ -145,61 +178,14 @@ const productSchema = new mongoose.Schema(
                 }
             }
         ]
-    },
-    {
-        timestamps: true,
-        toJSON: { 
-            virtuals: true,
-            transform: function(doc, ret) {
-                delete ret._id;
-                if (ret.variants) {
-                    ret.variants.forEach(variant => {
-                        delete variant._id;
-                    });
-                }
-                if (ret.specifications) {
-                    ret.specifications.forEach(spec => {
-                        delete spec._id;
-                    });
-                }
-                if (ret.warranty) {
-                    ret.warranty.forEach(warr => {
-                        delete warr._id;
-                    });
-                }
-            }
-        },
-        toObject: { 
-            virtuals: true,
-            transform: function(doc, ret) {
-                delete ret._id;
-                if (ret.variants) {
-                    ret.variants.forEach(variant => {
-                        delete variant._id;
-                    });
-                }
-                if (ret.specifications) {
-                    ret.specifications.forEach(spec => {
-                        delete spec._id;
-                    });
-                }
-                if (ret.warranty) {
-                    ret.warranty.forEach(warr => {
-                        delete warr._id;
-                    });
-                }
-            }
-        }
-    }
-);
+    },{timestamps: true,
+        toJSON: { virtuals: true,},
+        toObject: { virtuals: true}
+    });
 
 // Optional: Add indexes for better query performance
-productSchema.index({ name: 'text', description: 'text', model: 'text' });
-productSchema.index({ category: 1 });
-productSchema.index({ brand: 1 });
-productSchema.index({ price: 1 });
-productSchema.index({ status: 1 });
+ProductSchema.index({ name: 'text', description: 'text', model: 'text', 'attributes.$*': 'text' });
 
-const Product = mongoose.model('Product', productSchema); // Capitalized model name
+const Product = mongoose.model('Product', ProductSchema); // Capitalized model name
 
 export default Product;

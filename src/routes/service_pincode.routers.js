@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { addPincode, getPincode, deletePincode } from "../controllers/service_pincode.controller.js"
-import { authenticate, roleBase } from "../middleware/auth.middlerwares.js";
+import { tokenVerify, role } from "../middleware/auth.middlerwares.js";
 const pincodeRouter = Router();
 
-pincodeRouter.post('/', authenticate, roleBase('admin'), addPincode);
-pincodeRouter.get('/', authenticate, roleBase('admin'), getPincode);
-pincodeRouter.delete('/:id',authenticate, roleBase('admin'), deletePincode);
+pincodeRouter.post('/', tokenVerify, role('admin'), addPincode);
+pincodeRouter.get('/', tokenVerify, role('admin'), getPincode);
+pincodeRouter.delete('/:id', tokenVerify, role('admin'), deletePincode);
 export default pincodeRouter;
