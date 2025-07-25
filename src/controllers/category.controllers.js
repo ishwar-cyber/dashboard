@@ -1,6 +1,6 @@
 import Category from "../modules/category.modules.js";
-import { createCategory } from "../services/category.service.js";
-import { uploadFile } from "../utilities/cloudnary.js";
+import { createCategory, getCategoryByIdOrSlug, updateCategoryById } from "../services/category.service.js";
+import { uploadFile, deleteFile } from "../utilities/cloudnary.js";
 export const create = async (req, res) => {
     try {
         const categoryData = {...req.body};
@@ -59,27 +59,29 @@ export const getCategoryById = async (req, res) => {
 
 export const updateCategory = async (req, res) => {
     try {
-        let category = await Category.findById(req.params.id);
-        if (!category) {
-            const error = new Error('Category not found');
-            error.statusCode = 404;
-            throw error;
-        }
-        const file = req.file; // Access the uploaded file from Multer
+        let category = {...req.body}
+        let id = req.params.id;
 
-        
-        const { name, status } = req.body;
-        category.name = name;
-        category.status = status;
-        await category.save();
+        const existingCategory = await getCategoryByIdOrSlug(id);
+        console.log('existingCategory', existingCategory);
+    
+
+        if(req.file && !existingCategory.image.public_id){
+            const result = await uploadFile(req.file.path);
+            category.image = {
+                url: result.url,
+                public_id: result.public_id
+            };
+        } else {
+            category.image = existingCategory.image;
+        }
+        const categoryUpdated = await updateCategoryById(id, category);
         res.status(200).json({
             success: true,
             message: 'Category updated successfully',
-            data: category
+            data: categoryUpdated
         });
     } catch (error) {
-      
-        
         res.status(error.statusCode || 500).json({
             success: false,
             message: error.message
