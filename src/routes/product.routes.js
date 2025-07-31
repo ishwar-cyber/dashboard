@@ -23,7 +23,7 @@ productRouter.put('/:id',
 );
 productRouter.delete('/:id', tokenVerify, role('admin'), deleteProduct);
 productRouter.get('/category/:id', tokenVerify, getProductByCategoryId);
-productRouter.post('/images',upload.fields([{ name: 'productImages', maxCount: 10 }]), uploadImages);
+productRouter.post('/images',upload.fields([{ name: 'image', maxCount: 10 }]), uploadImages);
 
 export default productRouter;
 

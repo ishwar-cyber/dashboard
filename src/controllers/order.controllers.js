@@ -11,7 +11,7 @@ import { validateObjectId } from '../utilities/validation.js';
 export const createOrder = async (req, res) => {
     try {
         const {
-            cartId,
+            cartItems,
             shippingAddress,
             billingAddress,
             paymentMethod,
@@ -26,7 +26,7 @@ export const createOrder = async (req, res) => {
         const userId = req.user._id;
 
         // Validate required fields
-        if (!cartId || !validateObjectId(cartId)) {
+        if (!cartItems) {
             return res.status(400).json({
                 success: false,
                 message: 'Valid cart ID is required'

@@ -229,15 +229,12 @@ export const updateProductById = async (req, res) => {
 
 export const uploadImages = async(req, res)=>{
     const file = req.files['image'];
-    const image = {};
-    console.log('filesssssss',file);
-    
+    let image = {};
     if(file.length > 1) {
-         image = file ? await uploadFiles(file) : null;        
+        image = file ? await uploadFiles(file) : null;        
     } else {
        image = file ? await uploadFile(file) : null;  
     }
-    
     res.status(200).json({
         success: true,
         message: "url created",

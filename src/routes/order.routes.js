@@ -23,7 +23,7 @@ orderRouter.post('/', tokenVerify, createOrder);
  * @desc    Get all orders (Admin only)
  * @access  Private/Admin
  */
-orderRouter.get('/', tokenVerify, role(['admin']), getAllOrders);
+orderRouter.get('/', tokenVerify, role('admin'), getAllOrders);
 
 /**
  * @route   GET /api/orders/user/me

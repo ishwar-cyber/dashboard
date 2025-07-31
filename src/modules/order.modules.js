@@ -80,7 +80,7 @@ const orderSchema = new mongoose.Schema({
         required: true,
         index: true
     },
-    orderItems: [orderItemSchema],
+    cartItems: [orderItemSchema],
     
     // Pricing
     subtotal: {
