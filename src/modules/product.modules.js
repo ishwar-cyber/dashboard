@@ -1,6 +1,38 @@
 import mongoose from "mongoose";
-
 const Schema = mongoose.Schema;
+
+const SpecificationSchema = new Schema ({
+    name: {
+        type: String,
+        trim: true,
+        maxLength: [50, 'Specification name cannot exceed 50 characters']
+    },
+    value: {
+        type: String,
+        trim: true,
+        maxLength: [100, 'Specification value cannot exceed 100 characters']
+    }
+});
+
+const OfferPriceSchema = new Schema({
+    quantity: {
+        type: Number,
+        trim: true,
+    },
+    price: {
+        type: Number,
+        trim: true,
+    }
+});
+const ImageSchema = new Schema (
+    {
+        url: {
+            type: String,
+            required: true
+        },
+        public_id: String
+    }
+)
 const VariantSchema = new Schema(
     {
         name:{
@@ -33,9 +65,7 @@ const ProductSchema = new Schema(
             required: [true, 'Product name is required'],
             trim: true
         },
-        images:[{
-            type: String,
-        }],
+        images:[ImageSchema],
         discount:{
             type: Number,
             min: 0,
@@ -63,7 +93,7 @@ const ProductSchema = new Schema(
             required: [true, 'At least one category is required']
         }],
         pincode :[{
-            type: Number,
+            type: String,
         }],
         stock: {
             type: Number,
@@ -78,10 +108,8 @@ const ProductSchema = new Schema(
         },
         sku: {
             type: String,
-            required: [true, 'Model is required'],
             trim: true,
-            unique: true,
-            maxLength: [50, 'Model cannot exceed 50 characters']
+            unique: true
         },
         featured:{
             type: Boolean,
@@ -133,33 +161,8 @@ const ProductSchema = new Schema(
             type: Boolean,
             default: true
         },
-        specifications: [{
-            name: {
-                type: String,
-                required: [true, 'Specification name is required'],
-                trim: true,
-                maxLength: [50, 'Specification name cannot exceed 50 characters']
-            },
-            value: {
-                type: String,
-                required: [true, 'Specification value is required'],
-                trim: true,
-                maxLength: [100, 'Specification value cannot exceed 100 characters']
-            }
-        }],
-        offerPrice: [{
-            quantity: {
-                type: Number,
-                required: [true, 'quntity is required'],
-                trim: true,
-               
-            },
-            price: {
-                type: Number,
-                required: [true, 'price is required'],
-                trim: true,
-            }
-        }],
+        specifications: [SpecificationSchema],
+        offerPrice: [OfferPriceSchema],
         warranty: [
             {
                 period: {
@@ -184,7 +187,7 @@ const ProductSchema = new Schema(
     });
 
 // Optional: Add indexes for better query performance
-ProductSchema.index({ name: 'text', description: 'text', model: 'text', 'attributes.$*': 'text' });
+// ProductSchema.index({ name: 'text', description: 'text', model: 'text', 'attributes.$*': 'text' });
 
 const Product = mongoose.model('Product', ProductSchema); // Capitalized model name
 

@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-
 const Schema = mongoose.Schema;
 
 const StockTransactionSchema = new Schema(
@@ -105,4 +104,4 @@ const InventorySchema = new Schema(
 
 const Inventory = mongoose.model('Inventory', InventorySchema);
 
-module.exports = Inventory;
+export default Inventory;

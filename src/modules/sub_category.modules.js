@@ -18,7 +18,12 @@ const SubCategorySchema = new mongoose.Schema({
         required: [true, 'Category is Required']
     },
     image: {
-        type: String,
+        url: String,
+        public_id: String
+    },
+    serviceCharges:{
+        type: Number,
+        default: 0
     },
     isActive: {
         type: Boolean,
@@ -34,6 +39,7 @@ SubCategorySchema.virtual('products',{
     localField: '_id',
     foreignField: 'subCategory'
 });
+
 const SubCategory = mongoose.model('SubCategory', SubCategorySchema);
 
 export default SubCategory;

@@ -78,9 +78,7 @@ export const updateCartItemQuantity = async (userId, itemId, quantity, visitorId
         
         if(!item){
             throw new Error('Item not found in cart', 404);
-        }
-        console.log('cart items:', item);
-        
+        }  
         const product = await Product.findById(item.product);
         if(!product){
             throw new Error('Product not found', 404);

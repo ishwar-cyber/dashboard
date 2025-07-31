@@ -16,10 +16,6 @@ const CategorySchema = new mongoose.Schema({
         unique: true,
         index: true
     },
-    serviceCharges:{
-        type: Number,
-        default: 0
-    },
     isActive:{
         type: Boolean,
         default: true

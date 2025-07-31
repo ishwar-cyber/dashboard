@@ -1,5 +1,5 @@
-import Category from "../modules/category.modules.js";
-import { createCategory, getCategoryByIdOrSlug, updateCategoryById } from "../services/category.service.js";
+
+import { createCategory, getCategoryByIdOrSlug, updateCategoryById,deleteCategory,getAllCategories } from "../services/category.service.js";
 import { uploadFile, deleteFile } from "../utilities/cloudnary.js";
 export const create = async (req, res) => {
     try {
@@ -11,8 +11,6 @@ export const create = async (req, res) => {
                 public_id: result.public_id
             }
         }
-
-        
         res.status(200).json({
             success: true,
             message: "Category added successfully",
@@ -26,11 +24,23 @@ export const create = async (req, res) => {
 
 export const getCategories = async (req, res) => {
     try {
-        let categories = await Category.find().populate('_id');
+
+        const options = {
+            page: req.query.page,
+            limit: req.query.limit,
+            search: req.query.search,
+            query: req.query.query,
+            isActive: req.query.isActive,
+            sortBy: req.query.sortBy,
+            sortOrder: req.query.sortOrder
+        };
+
+        const category = await getAllCategories(options);
         res.status(200).json({
             success: true,
             message: "Categories fetched successfully",
-            data: categories
+            data: category?.categories,
+            pagination: category?.pagination
         })
     } catch (error) {
         res.status(500).json({success: false, message: error.message})
@@ -39,7 +49,7 @@ export const getCategories = async (req, res) => {
 
 export const getCategoryById = async (req, res) => {
     try {
-        let category = await Category.findById(req.params.id);
+        let category = await getCategoryByIdOrSlug(req.params.id);
         if (!category) {
             const error = new Error('Category not found');
             error.statusCode = 404;
@@ -63,8 +73,6 @@ export const updateCategory = async (req, res) => {
         let id = req.params.id;
 
         const existingCategory = await getCategoryByIdOrSlug(id);
-        console.log('existingCategory', existingCategory);
-    
 
         if(req.file && !existingCategory.image.public_id){
             const result = await uploadFile(req.file.path);
@@ -91,14 +99,12 @@ export const updateCategory = async (req, res) => {
 
 export const deleteById = async (req, res) => {
     try {
-
-        let category = await Category.findById(req.params.id);
-        if (!category) {
-            const error = new Error('Category not found');
-            error.statusCode = 404;
-            throw error;
+        let category = await getCategoryByIdOrSlug(req.params.id);
+        await deleteCategory(req.params.id);
+        if(category.image && category.image.public_id) {
+            // Assuming deleteFile is a function that deletes the file from cloud storage
+            await deleteFile(category.image.public_id);
         }
-        await category.deleteOne();
         res.status(200).json({
             success: true,
             message: 'Category is deleted'

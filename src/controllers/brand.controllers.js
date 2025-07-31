@@ -5,9 +5,7 @@ export const create = async (req, res, next) => {
     try {
         let brandData  = {...req.body};
         if(req.file){
-            const result = await uploadFile(req.file.path);
-            console.log('brand image', result);
-            
+            const result = await uploadFile(req.file.path);         
             brandData.image = {
                 url: result.url,
                 public_id: result.public_id
@@ -42,12 +40,13 @@ export const getBrands = async (req, res, next) => {
         let brands = await getAllBrands(options);
         res.status(200).json({
             success: true,
-            data: brands
+            message: 'Brands fetched successfully',
+            data: brands.data
         });
     } catch (error) {
        next(error);
     }
-}
+};
 
 export const getBrand = async (req, res) => {
     try {

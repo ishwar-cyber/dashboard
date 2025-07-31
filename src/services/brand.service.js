@@ -3,8 +3,6 @@ import Brand from "../modules/brand.modules.js";
 import slugify from "slugify";
 
 export const createBrand = async(brandData) => {
-    console.log('slug'. brandData);
-
     try {
         if(!brandData.slug){
             brandData.slug = slugify(brandData.name,{lower: true});

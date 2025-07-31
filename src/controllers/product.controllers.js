@@ -1,55 +1,17 @@
 import Product from "../modules/product.modules.js"
-import Category from "../modules/category.modules.js";
-import Brand from "../modules/brand.modules.js";
-import SubCategory from '../modules/sub_category.modules.js';
-import mongoose from "mongoose";
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
+import { getProducts, create } from "../services/product.service.js";
 export const createProduct = async(req, res, next)=>{
     try {
-        const {name, model, price, stock, productImages,  pincode, warranty, weight, height, width, length, offerPrice, subCategory, description, specifications, category, brand, status} = req.body;
-        let {variants} = req.body; // Changed to let from const
+        const productData = {...req.body};
         
-        // const productImage = req.files['productImages'];
-        // const productImages = file ? await uploadFiles(productImage) : null;
-        const variant = req.files['variants[0][variantImage]'];
-        const variantImages = variant ? await uploadFiles(variant) : null;
-        
-        if(variantImages && variantImages.length > 0) {   
-            // Parse variants if it's a string
-            if (typeof variants === 'string') {
-                variants = JSON.parse(variants || '[]');
-            }
-            
-            // Handle variants if they exist
-            // console.log('files',variants);
-            
-            if(variants && variants.length > 0) {
-                const variantImage = variantImages.slice(1); // Skip first image (thumbnail)
-                variants = variants.map((variant, index) => ({
-                    ...variant,
-                    variantImage: variantImage[index] || null
-                }));
-            }
-        }
-
-        const existingProduct = await Product.findOne({model});
-        if(existingProduct){
-            const error = new Error("Product Aleady added please increase Quntity");
-            error.statusCode = 409;
-            throw error;
-        }        
-
-        console.log('product iamhe knkhf', productImages);
-        
-        let saveProduct = new Product({name, price, pincode, warranty, variants, offerPrice, weight, height, width, length, subCategory, stock, description, specifications, model, category, brand, productImages, status});
-        await saveProduct.save();
-        console.log('save product', saveProduct);
-        
-        // const response = await Product.find();
+        if(productData.price) productData.price = parseFloat(productData.price);
+        if(productData.discount) productData.discount = parseFloat(productData.discount);
+        if(productData.stock) productData.stock = parseInt(productData.stock);
         res.status(200).json({
             success: true,
             message: "add new product",
-            data: saveProduct
+            data: await create(productData)
         })
     } catch (error) {
         next(error)
@@ -57,51 +19,35 @@ export const createProduct = async(req, res, next)=>{
 }
 export const getAllProducts = async (req, res) => {
   try {
-    // Pagination
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+   const options = {
+        page: req.query.page,
+        limit: req.query.limit,
+        search: req.query.search,
+        query: req.query.query,
+        isActive: req.query.isActive,
+        sortBy: req.query.sortBy,
+        sortOrder: req.query.sortOrder,
+        category: req.query.category,
+        brand: req.query.brand,
+        subCategory: req.query.subCategory,
+        minPrice: req.query.minPrice,
+        maxPrice: req.query.maxPrice,
+        featured: req.query.featured
+    };
 
-    // Sorting
-    const sortBy = req.query.sortBy || 'createdAt';
-    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
-
-    // Searching (optional)
-    const searchQuery = {};
-    if (req.query.search) {
-      searchQuery.$or = [
-        { name: { $regex: req.query.search, $options: 'i' } },
-        { description: { $regex: req.query.search, $options: 'i' } }
-      ];
+    if(req.query.category) {
+        options.category = req.query.category.split(',');
     }
-
-    // Filtering by category (optional)
-    if (req.query.category) {
-      searchQuery.category = req.query.category;
-    }
-
-    const products = await Product.find(searchQuery).populate('category', 'name')
-      .populate('brand', 'name')
-      .populate('subCategory', 'name')
-      .sort({ [sortBy]: sortOrder })
-      .skip(skip)
-      .limit(limit);
-
-    const totalProducts = await Product.countDocuments(searchQuery);
-    const totalPages = Math.ceil(totalProducts / limit);
-
-    res.json({
-      success: true,
-      count: products.length,
-      page,
-      totalPages,
-      totalProducts,
-      data: products
+    const result = await getProducts(options);
+    res.status(200).json({
+        success: true,
+        data: result.products,
+        pagination: result.pagination
     });
-  } catch (err) {
+  } catch (error) {
     res.status(500).json({
-      success: false,
-      error: 'Server Error'
+        success: false,
+        message: error.message
     });
   }
 };
@@ -282,15 +228,19 @@ export const updateProductById = async (req, res) => {
 };
 
 export const uploadImages = async(req, res)=>{
-    const file = req.files['productImages'];
-    console.log('product image', file);
-
-    const productImages = file ? await uploadFiles(file) : null;
-    console.log('product images', productImages);
+    const file = req.files['image'];
+    const image = {};
+    console.log('filesssssss',file);
+    
+    if(file.length > 1) {
+         image = file ? await uploadFiles(file) : null;        
+    } else {
+       image = file ? await uploadFile(file) : null;  
+    }
     
     res.status(200).json({
         success: true,
         message: "url created",
-        data: productImages,
+        data: image,
     });
 }

@@ -36,14 +36,12 @@ export const addToCart = async (req, res) => {
         
         
         const calculateCart = await calculatedCart(cart);
-        console.log('calculated after' , calculateCart);
         res.status(200).json({
             success: true,
             message: 'Item added to cart',
             data: calculateCart
         })
     } catch (error) {
-        console.log(`Item not added on cart`)
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 }
@@ -124,8 +122,7 @@ export const updateCartItem = async (req, res) => {
         const visitorId = req.visitorId;
         const { itemId } = req.params;
         const { quantity } = req.body;  
-        console.log('userId:', userId, 'visitorId:', visitorId, 'itemId:', itemId, 'quantity:', quantity);
-        
+
         if(!userId && !visitorId){
             return res.status(400).json({ success: false, message: 'User or Visitor ID is required' });
         }

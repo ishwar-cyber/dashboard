@@ -12,6 +12,7 @@ cloudinary.config({
 
 const uploadFile = async (file) => {   
     try {
+        console.log('fddhdhddfhdf', file);    
         if (!file) return null;
         const response = await cloudinary.uploader.upload(file);
         return {
@@ -43,8 +44,11 @@ const uploadFiles = async (files) => {
             try {
                 const result = await cloudinary.uploader.upload(file.path);
                 console.log('result url', result);
-                
-                urls.push(result.url);
+                let imageRes = {
+                    url: result.url,
+                    public_id: result.public_id
+                }
+                urls.push(imageRes);
                 // Delete local file after successful upload
                 if (fs.existsSync(file.path)) {
                     fs.unlinkSync(file.path);
