@@ -5,7 +5,7 @@ import { upload } from "../middleware/multer.middlerwares.js";
 
 const productRouter = Router();
 
-productRouter.get('/', tokenVerify, getAllProducts);
+productRouter.get('/', getAllProducts);
 productRouter.get('/search', search);
 productRouter.get('/:id', getProductById);
 productRouter.post('/', 
