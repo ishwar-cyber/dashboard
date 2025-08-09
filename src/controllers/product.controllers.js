@@ -7,7 +7,7 @@ export const createProduct = async(req, res, next)=>{
         
         if(productData.price) productData.price = parseFloat(productData.price);
         if(productData.discount) productData.discount = parseFloat(productData.discount);
-        if(productData.stock) productData.stock = parseInt(productData.stock);
+        // if(productData.stock) productData.stock = parseInt(productData.stock);
         res.status(200).json({
             success: true,
             message: "add new product",
@@ -52,7 +52,7 @@ export const getAllProducts = async (req, res) => {
   }
 };
 
-export const search = async(req,res)=>{
+export const searchProduct = async(req,res)=>{
     try {
         let query={}
 
@@ -230,7 +230,7 @@ export const updateProductById = async (req, res) => {
 export const uploadImages = async(req, res)=>{
     const file = req.files['image'];
     let image = {};
-    if(file.length > 1) {
+    if(file.length >= 1) {
         image = file ? await uploadFiles(file) : null;        
     } else {
        image = file ? await uploadFile(file) : null;  

@@ -92,7 +92,8 @@ export const create = async (productData) => {
         const existingProduct = await Product.findOne({
             $or: [
                 { name: productData.name },
-                { slug: productData.slug }
+                { slug: productData.slug },
+                { sku: productData.sku }
             ]
         });
 

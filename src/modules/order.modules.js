@@ -80,7 +80,12 @@ const orderSchema = new mongoose.Schema({
         required: true,
         index: true
     },
-    cartItems: [orderItemSchema],
+    orderItems: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'cart',
+        required: true,
+        index: true
+    }],
     
     // Pricing
     subtotal: {

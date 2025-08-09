@@ -52,9 +52,7 @@ const VariantSchema = new Schema(
             min:0,
             default: 0
         },
-        image:{
-            type: String
-        }    
+        image:[ImageSchema]   
     },{
         _id: true
     });
@@ -96,10 +94,8 @@ const ProductSchema = new Schema(
             type: String,
         }],
         stock: {
-            type: Number,
-            required: [true, 'Stock is required'],
-            min:0,
-            default: 0
+            type: mongoose.Schema.Types.Mixed,
+            required: [true, 'Stock is required']
         },
         description: {
             type: String,
