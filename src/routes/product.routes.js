@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { createProduct, search,getProductByCategoryId, getAllProducts, updateProductById, getProductById, deleteProduct, uploadImages } from "../controllers/product.controllers.js";
+import { createProduct, searchProduct,getProductByCategoryId, getAllProducts, updateProductById, getProductById, deleteProduct, uploadImages } from "../controllers/product.controllers.js";
 import { tokenVerify, role } from "../middleware/auth.middlerwares.js";
 import { upload } from "../middleware/multer.middlerwares.js";
 
 const productRouter = Router();
 
 productRouter.get('/', getAllProducts);
-productRouter.get('/search', search);
+productRouter.get('/search', searchProduct);
 productRouter.get('/:id', getProductById);
 productRouter.post('/', 
     tokenVerify, 
