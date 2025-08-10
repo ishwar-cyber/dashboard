@@ -52,34 +52,34 @@ export const getAllProducts = async (req, res) => {
   }
 };
 
-export const searchProduct = async(req,res)=>{
-    try {
-        let query={}
+export const searchProduct = async (req, res) => {
+  try {
+    const query = req.query.q || '';
+    console.log('Search query:', query);
 
-        if(req.query.keyword){
-            query.$or = [
-                {name:{$regex: req.query.keyword, $options:'i'}},
-                {description:{$regex: req.query.keyword, $options:'i'}},
-                {brand:{$regex: req.query.keyword, $options:'i'}},
-            ]
-        }
-        if(req.query.category){
-            query.category = req.query.cateogry
-        }
-
-        if(req.query.min && req.query.max){
-            query.price = {$gte: parseFloat(req.query.min), $lte: parseFloat(req.query.max)}
-        }
-
-        let searchProduct = await Product.find(query);
-        res.status(200).json({
-            success: true,
-            data: searchProduct
-        })
-    } catch (error) {
-        res.status(500).json({success: false, message: error.message})
+    if (!query.trim()) {
+      return res.status(400).json({ success: false, message: 'Search query is required' });
     }
-}
+
+    // Only search product name (case-insensitive)
+    const products = await Product.find({
+      $or: [
+        { name: { $regex: query, $options: 'i' } },               // Product name
+        { 'brand.name': { $regex: query, $options: 'i' } },       // Brand name
+        { 'category.name': { $regex: query, $options: 'i' } },    // Category name
+        { description: { $regex: query, $options: 'i' } }         // Description
+      ] 
+    }).limit(20);
+
+    console.log('Products found:', products.length);
+
+    res.json({ success: true, data: products });
+  } catch (err) {
+    console.error('Search Error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 
 export const getProductById = async(req,res)=>{
     try {
