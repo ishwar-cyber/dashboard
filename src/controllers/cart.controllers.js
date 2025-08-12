@@ -5,11 +5,8 @@ import { calculatedCart } from '../services/cart.calculater.service.js';
 export const addToCart = async (req, res) => {
     try {
         const {productId, quantity = 1} = req.body;
-      
-        
         const userId =req.user?.id;
         const visitorId = req.visitorId;
-
         if(!productId){
             return res.status(400).json({ success: false, message: 'Product id is Required' });
         }

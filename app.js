@@ -20,9 +20,9 @@ const app = express();
 
 app.use(express.json({limit: "16kb"}));
 app.use(express.urlencoded({extended: false,limit: "16kb"}));
-app.use(express.static("public"))
+app.use(express.static("public"));
 app.use(cookieParser());
-app.use(cors())
+app.use(cors({  origin: 'https://shoppyness-backend.onrender.com/api/v1', credentials: true}))
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);
@@ -34,6 +34,7 @@ app.use('/api/v1/cart', cartRouter);
 app.use('/api/v1/coupons', couponRouter);
 app.use('/api/v1/subcategory', subCategoryRouter);
 app.use('/api/v1/pincode', pincodeRouter);
+
 
 
 app.use(errorHandling);

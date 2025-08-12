@@ -52,11 +52,49 @@ export const getAllProducts = async (req, res) => {
   }
 };
 
+export const findRelatedProducts = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Get the base product
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // 2. Query for related products
+    const query = {
+      category: product.category,
+      _id: { $ne: product._id } // exclude current product
+    };
+
+    // Optional: also match brand
+    if (product.brand) {
+      query.brand = product.brand;
+    }
+
+    // Optional: match any tags
+    // if (product.tags && product.tags.length > 0) {
+    //   query.tags = { $in: product.tags };
+    // }
+
+    const relatedProducts = await Product.find(query)
+      .limit(4) // Limit to 4
+    //   .select("name price image category brand") // Fields to return
+      .populate("category", "name")
+      .populate("brand", "name");
+
+    res.json(relatedProducts);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 export const searchProduct = async (req, res) => {
   try {
     const query = req.query.q || '';
-    console.log('Search query:', query);
-
     if (!query.trim()) {
       return res.status(400).json({ success: false, message: 'Search query is required' });
     }
@@ -70,9 +108,6 @@ export const searchProduct = async (req, res) => {
         { description: { $regex: query, $options: 'i' } }         // Description
       ] 
     }).limit(20);
-
-    console.log('Products found:', products.length);
-
     res.json({ success: true, data: products });
   } catch (err) {
     console.error('Search Error:', err);

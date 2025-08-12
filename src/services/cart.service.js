@@ -39,36 +39,57 @@ const getCartByVisitorId = async (visitorId) => {
     }
 }
 
-export const addItemToCart = async(userId, item, visitorId) => {
-    try {
-        const cart = userId ? await getOrCreateCart(userId) : await getCartByVisitorId(visitorId);
+export const addItemToCart = async (userId, item, visitorId) => {
+  try {
+    // Get the cart
+    const cart = userId
+      ? await getOrCreateCart(userId)
+      : await getCartByVisitorId(visitorId);
 
-        const existingItemIndex = cart.items.findIndex(i =>
-            i.product.toString() === item.product.toString()
-        );
+    if (!cart) {
+      throw new Error("Cart not found");
+    }
+    const product = await Product.findById(item.product);
+    // console.log('produc tid ponmkn', product);
+    
+    if (!product) {
+      throw new Error("Product not found");
+    }
 
-        if(existingItemIndex > -1){ 
-           cart.items[existingItemIndex].quantity += item.quantity;
-            // Check if the new quantity exceeds available stock
-            const product = await Product.findById(item.product);
-
-            if(cart.items[existingItemIndex].quantity > product.stock){
-                throw new Error(`Only ${product.stock} items available in stock`, 400);
+    const itemssss = '';
+    itemssss = cart.items.map((cartItem)=> cartItem.product.id === item.product);    
+      // Update quantity
+      let storeQuantity = '';
+        if(itemssss[0] === true){
+            for(let cartItem of cart.items){
+                if(cartItem.product.id === item.product) {
+                    storeQuantity = cartItem.quantity + item.quantity;
+                    if (storeQuantity > product.stock) {
+                        throw new Error(`Only ${product.stock} items available in stock`);
+                    }
+                    cartItem.quantity = storeQuantity;
+                }
             }
         } else {
+            if (item.quantity > product.stock) throw new Error(`Only ${product.stock} items available in stock`);
             cart.items.push(item);
         }
-        cart.modifiedOn = Date.now();
-        await cart.save();
-        return await Cart.findById(cart._id).populate({
-            path: 'items.product',
-            select: 'name price stock image'
-        });
-       
-    } catch (error) {
-       console.log(error);
-    }
-}
+
+    // Update modified date
+    cart.modifiedOn = new Date();
+
+    // Save and return populated cart
+    await cart.save();
+    return await Cart.findById(cart._id).populate({
+      path: 'items.product',
+      select: 'name price stock image'
+    });
+  } catch (error) {
+    console.error(error);
+    throw error; // rethrow for API error handler
+  }
+};
+
 
 export const updateCartItemQuantity = async (userId, itemId, quantity, visitorId) => {
     try {

@@ -18,9 +18,7 @@ export const getUser = async(req, res, next)=>{
 // @route   GET /api/users
 // @access  Private/Admin
 export const getAllUser = async (req, res) => {
-    try {
-      console.log('Authenticated user making request:', req.user); // Log who's making the request
-      
+    try {      
       // Advanced filtering, sorting, pagination
       const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
       

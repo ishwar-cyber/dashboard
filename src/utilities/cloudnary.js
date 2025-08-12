@@ -11,8 +11,7 @@ cloudinary.config({
 });
 
 const uploadFile = async (file) => {   
-    try {
-        console.log('fddhdhddfhdf', file);    
+    try {  
         if (!file) return null;
         const response = await cloudinary.uploader.upload(file);
         return {
@@ -34,16 +33,13 @@ const uploadFile = async (file) => {
     }
 };
 
-const uploadFiles = async (files) => {
-    console.log('filessssss0', files);
-    
+const uploadFiles = async (files) => {    
     try {
         if (!files || files.length === 0) return null;
         const urls = [];
         for (const file of files) {
             try {
                 const result = await cloudinary.uploader.upload(file.path);
-                console.log('result url', result);
                 let imageRes = {
                     url: result.url,
                     public_id: result.public_id
@@ -66,9 +62,7 @@ const uploadFiles = async (files) => {
 };
 
 
-const deleteFile = async(publicId) =>{
-    console.log('publicId', publicId);
-    
+const deleteFile = async(publicId) =>{    
     try {
         return await cloudinary.uploader.destroy(publicId);
     } catch (error) {

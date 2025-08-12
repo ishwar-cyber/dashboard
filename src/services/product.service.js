@@ -142,8 +142,6 @@ export const create = async (productData) => {
 
         // 8. Create product
         const product = await Product.create(productData);
-        // console.log('✅ Product created:', product.name);
-
         return product;
     } catch (error) {
         throw new Error(`Error creating product: ${error.message}`);
