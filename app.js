@@ -22,7 +22,10 @@ app.use(express.json({limit: "16kb"}));
 app.use(express.urlencoded({extended: false,limit: "16kb"}));
 app.use(express.static("public"));
 app.use(cookieParser());
-app.use(cors())
+app.use(cors({
+  origin: 'https://shoppyness-backend.onrender.com', // your Angular app URL
+  credentials: true               // ✅ allow sending cookies
+}));
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);

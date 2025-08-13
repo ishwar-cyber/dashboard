@@ -68,7 +68,7 @@ const cartSchema = new mongoose.Schema({
 
 // Virtual for item count
 cartSchema.virtual('itemCount').get(function() {
-    return this.items.reduce((total, item) => total + item.quantity, 0);
+    return this.items.length;
 });
 
 cartSchema.virtual('subTotal').get(function() {
@@ -78,15 +78,15 @@ cartSchema.virtual('subTotal').get(function() {
     }, 0);
 });
 
-// Virtual for total discount
-cartSchema.virtual('totalDiscount').get(function() {
-    return this.items.reduce((total, item) => {
-        const itemDiscount = item.price * (item.discount || 0) / 100 * item.quantity;
-        return total + itemDiscount;
-    }, 0);
-});
+// // Virtual for total discount
+// cartSchema.virtual('totalDiscount').get(function() {
+//     return this.items.reduce((total, item) => {
+//         const itemDiscount = item.price * (item.discount || 0) / 100 * item.quantity;
+//         return total + itemDiscount;
+//     }, 0);
+// });
 
-// Virtual for total price of each item
+// // Virtual for total price of each item
 CartItemSchema.virtual('total').get(function() {
     return this.subTotal - this.totalDiscount;
 });

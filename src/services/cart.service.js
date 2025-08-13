@@ -56,11 +56,14 @@ export const addItemToCart = async (userId, item, visitorId) => {
       throw new Error("Product not found");
     }
 
-    const itemssss = '';
-    itemssss = cart.items.map((cartItem)=> cartItem.product.id === item.product);    
+    let existingItem = cart.items.find(
+        cartItem => cartItem.product.id.toString() === item.product.toString()
+    );   
       // Update quantity
       let storeQuantity = '';
-        if(itemssss[0] === true){
+      console.log('dfghjkl;', existingItem);
+      
+        if(existingItem){
             for(let cartItem of cart.items){
                 if(cartItem.product.id === item.product) {
                     storeQuantity = cartItem.quantity + item.quantity;

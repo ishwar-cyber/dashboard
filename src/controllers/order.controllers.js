@@ -9,9 +9,9 @@ import { validateObjectId } from '../utilities/validation.js';
  * @access  Private
  */
 export const createOrder = async (req, res) => {
-    try {
+    try {   
         const {
-            cartItems,
+            orderItems,
             shippingAddress,
             billingAddress,
             paymentMethod,
@@ -23,10 +23,10 @@ export const createOrder = async (req, res) => {
             userAgent
         } = req.body;
 
-        const userId = req.user._id;
+        const userId = req.body.user;
 
         // Validate required fields
-        if (!cartItems) {
+        if (!orderItems.length < 0) {
             return res.status(400).json({
                 success: false,
                 message: 'Valid cart ID is required'
@@ -46,20 +46,8 @@ export const createOrder = async (req, res) => {
                 message: 'Payment method is required'
             });
         }
-
-        // Validate shipping address
-        const requiredAddressFields = ['firstName', 'lastName', 'addressLine1', 'city', 'state', 'pincode', 'phone', 'email'];
-        for (const field of requiredAddressFields) {
-            if (!shippingAddress[field]) {
-                return res.status(400).json({
-                    success: false,
-                    message: `${field} is required in shipping address`
-                });
-            }
-        }
-
         // Get cart and validate
-        const cart = await Cart.findById(cartId);
+        const cart = await Cart.findById(orderItems);        
         if (!cart) {
             return res.status(404).json({
                 success: false,
@@ -75,11 +63,12 @@ export const createOrder = async (req, res) => {
         }
 
         // Validate stock and prepare order items
-        const orderItems = [];
+        const preparedOrderItems = [];
         let subtotal = 0;
 
         for (const cartItem of cart.items) {
             const product = await Product.findById(cartItem.product);
+            
             if (!product) {
                 return res.status(404).json({
                     success: false,
@@ -93,9 +82,8 @@ export const createOrder = async (req, res) => {
                     message: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${cartItem.quantity}`
                 });
             }
-
             // Create order item
-            orderItems.push({
+            preparedOrderItems.push({
                 product: cartItem.product,
                 quantity: cartItem.quantity,
                 price: cartItem.price,
@@ -121,7 +109,7 @@ export const createOrder = async (req, res) => {
         // Create order
         const order = new Order({
             user: userId,
-            orderItems,
+            orderItems: preparedOrderItems,
             subtotal,
             tax,
             shipping,
@@ -151,7 +139,7 @@ export const createOrder = async (req, res) => {
                 path: 'orderItems.product',
                 select: 'name price thumbnail sku'
             });
-
+        
         res.status(201).json({
             success: true,
             message: 'Order created successfully',

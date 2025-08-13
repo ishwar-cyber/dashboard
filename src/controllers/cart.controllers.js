@@ -36,7 +36,7 @@ export const addToCart = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Item added to cart',
-            data: calculateCart
+            data: cart
         })
     } catch (error) {
         res.status(500).json({ success: false, message: 'Internal server error' });
