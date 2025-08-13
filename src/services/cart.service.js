@@ -1,7 +1,7 @@
 
 import Cart from '../modules/cart.modules.js';
 import Product from '../modules/product.modules.js';
-const getOrCreateCart = async (userId) =>{
+export const getOrCreateCart = async (userId) =>{
     try {
         
         let cart = await Cart.findOne({user: userId, isActive: true}).populate({
@@ -20,7 +20,7 @@ const getOrCreateCart = async (userId) =>{
         throw new Error(`Error getting cart: ${error.message}`);
     }
 };
-const getCartByVisitorId = async (visitorId) => {
+export const getCartByVisitorId = async (visitorId) => {
     try {
         let cart = await Cart.findOne({visitorId, isActive: true}).populate({
             path: 'items.product',
