@@ -23,7 +23,7 @@ app.use(express.urlencoded({extended: false,limit: "16kb"}));
 app.use(express.static("public"));
 app.use(cookieParser());
 app.use(cors({
-  origin: 'https://shoppyness-backend.onrender.com', // your Angular app URL
+  origin: 'https://application-shoppyness.vercel.app', // your Angular app URL
   credentials: true               // ✅ allow sending cookies
 }));
 
