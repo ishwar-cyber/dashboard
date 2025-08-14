@@ -25,7 +25,7 @@ app.use(express.static("public"));
 app.use(cookieParser());
 
 const corsOptions = {
-  origin: 'http://localhost:4400',
+  origin: 'https://application-shoppyness.vercel.app',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
