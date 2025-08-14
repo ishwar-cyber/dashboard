@@ -19,7 +19,7 @@ const productRouter = Router();
 productRouter.get('/', getAllProducts);
 productRouter.get('/search', searchProduct);
 productRouter.get('/:id/related', findRelatedProducts);
-productRouter.get('/category/:id', tokenVerify, getProductByCategoryId);
+productRouter.get('/category/:id', getProductByCategoryId);
 productRouter.get('/:id', getProductById);
 
 // Admin Routes

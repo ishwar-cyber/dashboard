@@ -4,9 +4,7 @@ export const identifyVisitor = (req, res, next) =>{
     if(req.user) return next();
 
     const visitorId = getOrCreateVisitorId(req, res);
-
     req.visitorId = visitorId;
-
     next();
 }
 

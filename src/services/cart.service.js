@@ -1,4 +1,3 @@
-
 import Cart from '../modules/cart.modules.js';
 import Product from '../modules/product.modules.js';
 export const getOrCreateCart = async (userId) =>{
@@ -61,14 +60,13 @@ export const addItemToCart = async (userId, item, visitorId) => {
     );   
       // Update quantity
       let storeQuantity = '';
-      console.log('dfghjkl;', existingItem);
-      
         if(existingItem){
             for(let cartItem of cart.items){
                 if(cartItem.product.id === item.product) {
                     storeQuantity = cartItem.quantity + item.quantity;
                     if (storeQuantity > product.stock) {
                         throw new Error(`Only ${product.stock} items available in stock`);
+                        //  return res.status(400).json({ success: false, message: 'Not enough stock available' });
                     }
                     cartItem.quantity = storeQuantity;
                 }

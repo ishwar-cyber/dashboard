@@ -131,9 +131,10 @@ export const getProductById = async(req,res)=>{
 export const getProductByCategoryId = async (req, res) => {
     try {
         const categoryId = req.params.id;
-
+        console.log('category iddd', req.params.id);
+        
         // Validate category ID
-        if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid category ID'
@@ -142,7 +143,10 @@ export const getProductByCategoryId = async (req, res) => {
         
         
         // Find products where categories array contains this category ID
-        const products = await Product.find({ category: categoryId }).lean();
+        const products = await Product.find({
+            category: { $in: [categoryId] }
+        }).lean()
+       console.log('product by id', products);
        
         
         res.status(200).json({

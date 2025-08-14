@@ -1,7 +1,7 @@
 import Product from '../modules/product.modules.js';
 import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon, clearCartFromCart } from '../services/cart.service.js' 
 import { calculatedCart } from '../services/cart.calculater.service.js';
-import { getOrCreateCart, getCartByVisitorId } from '../services/card.service.js';
+import { getOrCreateCart, getCartByVisitorId } from '../services/cart.service.js';
 export const addToCart = async (req, res) => {
     try {
         const {productId, quantity = 1} = req.body;
@@ -30,9 +30,7 @@ export const addToCart = async (req, res) => {
             discount: product.discount,
             quantity
         }, visitorId);
-        
-        
-        const calculateCart = await calculatedCart(cart);
+
         res.status(200).json({
             success: true,
             message: 'Item added to cart',
@@ -45,25 +43,8 @@ export const addToCart = async (req, res) => {
 
 export const getCart = async (req, res) => {
     try {
-        const userId = req.user?.id;
-        const visitorId = req.visitorId;
-
-        if(!userId && !visitorId){
-            return res.status(400).json({ success: false, message: 'User or Visitor ID is required' });
-        }
-
-        const cart = userId ? await getOrCreateCart(userId) : await getCartByVisitorId(visitorId);
-        
-        if(!cart){
-            return res.status(404).json({ success: false, message: 'Cart not found' });
-        }
-
-        const calculateCart = await calculatedCart(cart);
-        
-        res.status(200).json({
-            success: true,
-            data: calculateCart
-        });
+        console.log('visiter id', req.visitorId);
+    
     } catch (error) {
         console.error(`Error fetching cart: ${error.message}`);
         res.status(500).json({ success: false, message: 'Internal server error' });

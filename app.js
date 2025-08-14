@@ -15,6 +15,7 @@ import cartRouter from "./src/routes/cart.routes.js";
 import couponRouter from "./src/routes/coupon.routers.js";
 import subCategoryRouter from "./src/routes/sub_category.routes.js";
 import pincodeRouter from "./src/routes/service_pincode.routers.js";
+import { identifyVisitor, requireIdentification } from './src/middleware/visitor.middleware.js';
 
 const app = express();
 
@@ -24,7 +25,7 @@ app.use(express.static("public"));
 app.use(cookieParser());
 
 const corsOptions = {
-  origin: 'https://application-shoppyness.vercel.app',
+  origin: 'http://localhost:4400',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -32,6 +33,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+cartRouter.use(identifyVisitor);
+cartRouter.use(requireIdentification);
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);
