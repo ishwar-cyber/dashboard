@@ -1,12 +1,13 @@
 import Product from '../modules/product.modules.js';
+import Cart from '../modules/cart.modules.js';
 import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon, clearCartFromCart } from '../services/cart.service.js' 
 import { calculatedCart } from '../services/cart.calculater.service.js';
-import { getOrCreateCart, getCartByVisitorId } from '../services/cart.service.js';
 export const addToCart = async (req, res) => {
     try {
         const {productId, quantity = 1} = req.body;
         const userId =req.user?.id;
         const visitorId = req.visitorId;
+        
         if(!productId){
             return res.status(400).json({ success: false, message: 'Product id is Required' });
         }
@@ -43,62 +44,65 @@ export const addToCart = async (req, res) => {
 
 export const getCart = async (req, res) => {
     try {
-        console.log('visiter id', req.visitorId);
-    
+        const { userId, visitorId } = getIds(req);
+        const cart = await Cart.findOne({ $or: [{ userId }, { visitorId }] })
+            .populate("items.product");
+        res.json(cart || { items: [] });
+            
     } catch (error) {
         console.error(`Error fetching cart: ${error.message}`);
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
-
 export const clearCart = async (req, res) => {
-    try {
-        const userId = req.user?.id;
-        const visitorId = req.visitorId;
-
-        if(!userId && !visitorId){
-            return res.status(400).json({ success: false, message: 'User or Visitor ID is required' });
-        }
-
-        const cart = await clearCartFromCart(userId, visitorId);
-
-        if(!cart){
-            return res.status(404).json({ success: false, message: 'Cart not found' });
-        }
-        res.status(200).json({
-            success: true,
-            message: 'Cart cleared successfully',
-            data: await calculatedCart(cart)
-        });
-    } catch (error) {
-        console.error(`Error clearing cart: ${error.message}`);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-    }
+  const { userId, visitorId } = getIds(req);
+  const cart = await Cart.find({ $or: [{ userId }, { visitorId }] });
+  if (cart) {
+    cart.items = [];
+    await cart.save();
+  }
+  res.json({ items: [] });
 };
 
 export const removeItemFromCart = async (req, res) => {
-    try {
-        const userId = req.user?.id;
-        const visitorId = req.visitorId;
-        const { itemId } = req.params;
+    console.log('req params', req.params);
+    
+  const { id } = req.params;
+  const { userId, visitorId } = getIds(req);
 
-        const cart =  await removeItemCart(userId, visitorId, itemId);
-        res.status(200).json({
-            success: true,
-            message: 'Item removed from cart',
-            data: await calculatedCart(cart)
-        });
-    } catch (error) {
-        console.error(`Error removing item from cart: ${error.message}`);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-    }
+  let cart = await Cart.findOne({ $or: [{ userId }, { visitorId }] });
+  if (cart) {
+    cart.items = cart.items.filter(
+      item => item._id.toString() !== id
+    );
+    await cart.save();
+  }
+  res.json(cart);
 };
+
+// export const removeItemFromCart = async (req, res) => {
+//     try {
+//         const userId = req.user?.id;
+//         const visitorId = req.visitorId;
+//         const { itemId } = req.params;
+
+//         const cart =  await removeItemCart(userId, visitorId, itemId);
+//         res.status(200).json({
+//             success: true,
+//             message: 'Item removed from cart',
+//             data: await calculatedCart(cart)
+//         });
+//     } catch (error) {
+//         console.error(`Error removing item from cart: ${error.message}`);
+//         res.status(500).json({ success: false, message: 'Internal server error' });
+//     }
+// };
 
 export const updateCartItem = async (req, res) => {
     try {
-        const userId = req.user?.id;
-        const visitorId = req.visitorId;
-        const { itemId } = req.params;
+        
+        const { userId, visitorId } = getIds(req);
+        const { id } = req.params;
         const { quantity } = req.body;  
 
         if(!userId && !visitorId){
@@ -108,11 +112,11 @@ export const updateCartItem = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Quantity is required' });
         }
         if(quantity === 0) {
-            await removeItemCart(userId, visitorId, itemId);
+            await removeItemCart(userId, visitorId, id);
             return res.status(200).json({ success: true, message: 'Item removed from cart' });
         }
 
-        const cart = await updateCartItemQuantity(userId, itemId, quantity, visitorId);
+        const cart = await updateCartItemQuantity(userId, id, quantity, visitorId);
 
         res.status(200).json({
             success: true,
@@ -146,3 +150,14 @@ export const applyCoupons = async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 }
+
+// Helper to get IDs
+function getIds(req) {
+  return {
+    userId: req.user?._id || null,
+    visitorId: req.visitorId
+  };
+}
+
+
+

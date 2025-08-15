@@ -1,4 +1,5 @@
-import Product from "../modules/product.modules.js"
+import Product from "../modules/product.modules.js";
+import Category from "../modules/category.modules.js";
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 import { getProducts, create } from "../services/product.service.js";
 export const createProduct = async(req, res, next)=>{
@@ -130,30 +131,28 @@ export const getProductById = async(req,res)=>{
 
 export const getProductByCategoryId = async (req, res) => {
     try {
-        const categoryId = req.params.id;
-        console.log('category iddd', req.params.id);
-        
-        // Validate category ID
-        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({
+        const slug = req.params.slug;
+
+        // Find category by slug
+        const category = await Category.findOne({ slug }).lean();
+        if (!category) {
+            return res.status(404).json({
                 success: false,
-                message: 'Invalid category ID'
+                message: 'Category not found'
             });
         }
-        
-        
-        // Find products where categories array contains this category ID
+
+        // Find products linked to this category
         const products = await Product.find({
-            category: { $in: [categoryId] }
-        }).lean()
-       console.log('product by id', products);
-       
-        
+            category: category._id
+        }).lean();
+
         res.status(200).json({
             success: true,
             count: products.length,
             data: products
         });
+
     } catch (error) {
         res.status(500).json({
             success: false,

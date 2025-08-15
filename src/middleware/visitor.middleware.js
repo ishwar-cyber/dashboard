@@ -1,19 +1,19 @@
-import { getOrCreateVisitorId } from "../utilities/visitor.js";
+import { v4 as uuidv4 } from 'uuid';
 
-export const identifyVisitor = (req, res, next) =>{
-    if(req.user) return next();
-
-    const visitorId = getOrCreateVisitorId(req, res);
-    req.visitorId = visitorId;
-    next();
-}
-
-export const requireIdentification = (req, res, next) =>{ 
-    if(!req.user && !req.visitorId){
-        return req.status(401).json({
-            success: false,
-            message: 'User identificartion required'
-        })
-    }
-    next();
-}
+export const generateVisitorIds = (req, res, next) => {
+  // Check if visitorId exists in cookies
+  let visitorId = req.cookies.visitorId;
+  if (!visitorId) {
+    // Create new visitor ID
+    visitorId = uuidv4();
+    res.cookie('visitorId', visitorId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 1000 * 60 * 60 * 24 * 365 // 1 year
+    });
+  }
+  // Make it available to request
+  req.visitorId = visitorId;
+  next();
+};

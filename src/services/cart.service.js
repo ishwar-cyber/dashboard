@@ -94,9 +94,10 @@ export const addItemToCart = async (userId, item, visitorId) => {
 
 export const updateCartItemQuantity = async (userId, itemId, quantity, visitorId) => {
     try {
-        const cart = userId ? await getOrCreateCart(userId) : await getCartByVisitorId(visitorId);
+        const cart = userId ? userId : visitorId;
         
-        const item = cart.items.id(itemId);
+       const item = cart.items.id(itemId);
+        console.log('carttttttttttt', item);
         
         if(!item){
             throw new Error('Item not found in cart', 404);

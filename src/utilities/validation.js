@@ -110,9 +110,9 @@ export const validatePaymentMethod = (method) => {
  * Generate visitor ID
  * @returns {string} - Unique visitor ID
  */
-export const generateVisitorId = () => {
-    return `visitor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
+// export const generateVisitorId = () => {
+//     return `visitor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+// };
 
 /**
  * Validate shipping address

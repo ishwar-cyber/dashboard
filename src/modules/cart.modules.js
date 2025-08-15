@@ -41,12 +41,10 @@ const cartSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'user',
-        required: false,
         index: true
     },
     visitorId: {
         type: String,
-        required: true,
         index: true
     },
     items: [CartItemSchema],
