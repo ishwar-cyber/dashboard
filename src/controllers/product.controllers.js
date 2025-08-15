@@ -92,6 +92,33 @@ export const findRelatedProducts = async (req, res) => {
   }
 };
 
+export const filterProducts = async (req, res) => {
+  try {
+    const { categories, brands, minPrice, maxPrice } = req.query;
+    const filter = {};
+    // Filter by categories (comma separated IDs or slugs)
+    if (categories) {
+      filter.category = { $in: categories.split(',') };
+    }
+    // Filter by brands
+    if (brands) {
+      filter.brand = { $in: brands.split(',') };
+    }
+    // Filter by price range
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    }
+    const products = await Product.find(filter).lean();
+    console.log('filter product', products);
+    res.json(products);
+
+  } catch (err) {
+    console.error('Error fetching products:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
 export const searchProduct = async (req, res) => {
   try {
@@ -115,7 +142,6 @@ export const searchProduct = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
-
 
 export const getProductById = async(req,res)=>{
     try {

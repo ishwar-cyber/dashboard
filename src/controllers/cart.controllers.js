@@ -1,12 +1,11 @@
 import Product from '../modules/product.modules.js';
 import Cart from '../modules/cart.modules.js';
-import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon, clearCartFromCart } from '../services/cart.service.js' 
+import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon, clearCartFromCart, getCartByVisitorId } from '../services/cart.service.js' 
 import { calculatedCart } from '../services/cart.calculater.service.js';
 export const addToCart = async (req, res) => {
     try {
         const {productId, quantity = 1} = req.body;
-        const userId =req.user?.id;
-        const visitorId = req.visitorId;
+       const { userId, visitorId } = getIds(req);
         
         if(!productId){
             return res.status(400).json({ success: false, message: 'Product id is Required' });
@@ -43,16 +42,24 @@ export const addToCart = async (req, res) => {
 }
 
 export const getCart = async (req, res) => {
-    try {
-        const { userId, visitorId } = getIds(req);
-        const cart = await Cart.findOne({ $or: [{ userId }, { visitorId }] })
-            .populate("items.product");
-        res.json(cart || { items: [] });
-            
-    } catch (error) {
-        console.error(`Error fetching cart: ${error.message}`);
-        res.status(500).json({ success: false, message: 'Internal server error' });
+  try {
+    const userId = req.user?.id || null; // from auth middleware if logged in
+    const visitorId = req.visitorId; // from middleware
+
+    const filter = [];
+    if (userId) filter.push({ userId });
+    if (visitorId) filter.push({ visitorId });
+    if (filter.length === 0) {
+      return res.json({ items: [] });
     }
+
+    const cart = await getCartByVisitorId(visitorId)
+
+    res.json(cart || { items: [] });
+  } catch (error) {
+    console.error("Error fetching cart:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
 };
 export const clearCart = async (req, res) => {
   const { userId, visitorId } = getIds(req);
@@ -153,9 +160,11 @@ export const applyCoupons = async (req, res) => {
 
 // Helper to get IDs
 function getIds(req) {
+    console.log('resssss',req);
+    
   return {
-    userId: req.user?._id || null,
-    visitorId: req.visitorId
+    userId: req.user?.id || null,
+    visitorId: req.visitorId || req.cookies?.visitorId || null
   };
 }
 

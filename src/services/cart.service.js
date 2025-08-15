@@ -23,7 +23,7 @@ export const getCartByVisitorId = async (visitorId) => {
     try {
         let cart = await Cart.findOne({visitorId, isActive: true}).populate({
             path: 'items.product',
-            select: 'name price stock image'
+            select: 'name price stock images'
         });
         if(!cart){
             cart = new Cart({
