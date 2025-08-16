@@ -4,38 +4,36 @@ import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon, cle
 import { calculatedCart } from '../services/cart.calculater.service.js';
 export const addToCart = async (req, res) => {
     try {
-        const {productId, quantity = 1} = req.body;
-       const { userId, visitorId } = getIds(req);
+      const {productId, quantity = 1} = req.body;
+      const { authToken, visitorId } = getIds(req);
+
+      if(!productId){
+        return res.status(400).json({ success: false, message: 'Product id is Required' });
+      }
+
+      if(quantity <= 0) return res.status(400).json({ success: false, message: 'Quantity must be greater than zero' });
+
+      const product = await Product.findById(productId);
         
-        if(!productId){
-            return res.status(400).json({ success: false, message: 'Product id is Required' });
-        }
-
-        if(quantity <= 0) return res.status(400).json({ success: false, message: 'Quantity must be greater than zero' });
-
-        const product = await Product.findById(productId);
- 
-        
-        if(!product){
-            return res.status(400).json({ success: false, message: 'Product not found' });
-        }
-        if(Number(product.stock) < quantity){
-            return res.status(400).json({ success: false, message: 'Not enough stock available' });
-        }
-        const cart = await addItemToCart(userId, {
-            product: product.id,
-            name: product.name,
-            image: product.productImages,
-            price: product.price,
-            discount: product.discount,
-            quantity
-        }, visitorId);
-
-        res.status(200).json({
-            success: true,
-            message: 'Item added to cart',
-            data: cart
-        })
+      if(!product){
+        return res.status(400).json({ success: false, message: 'Product not found' });
+      }
+      if(Number(product.stock) < quantity){
+          return res.status(400).json({ success: false, message: 'Not enough stock available' });
+      }
+      const cart = await addItemToCart(authToken, {
+          product: product.id,
+          name: product.name,
+          image: product.productImages,
+          price: product.price,
+          discount: product.discount,
+          quantity
+      }, visitorId);
+      res.status(200).json({
+          success: true,
+          message: 'Item added to cart',
+          data: cart
+      })
     } catch (error) {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
@@ -45,9 +43,13 @@ export const getCart = async (req, res) => {
     try {
         const { userId, visitorId } = getIds(req);
         const cart = await Cart.findOne({ $or: [{ userId }, { visitorId }] })
-            .populate("items.product");    
-        res.json(cart || { items: [] });
-            
+            .populate("items.product", "stock images");
+          
+        res.status(200).json({
+          message:'Get all Cart',
+          success: true,
+          data: cart || { items: [] }
+        })   
     } catch (error) {
         console.error(`Error fetching cart: ${error.message}`);
         res.status(500).json({ success: false, message: 'Internal server error' });
@@ -69,14 +71,18 @@ export const removeItemFromCart = async (req, res) => {
   const { id } = req.params;
   const { userId, visitorId } = getIds(req);
 
-  let cart = await Cart.findOne({ $or: [{ userId }, { visitorId }] });
+  let cart = await Cart.findOne({ $or: [{ userId }, { visitorId }] }).populate("items.product","images price");
   if (cart) {
     cart.items = cart.items.filter(
       item => item._id.toString() !== id
     );
     await cart.save();
   }
-  res.json(cart);
+  res.status(200).json({
+    success: true,
+    message: 'Remove item form cart',
+    data: cart
+  })
 };
 
 // export const removeItemFromCart = async (req, res) => {
@@ -120,7 +126,7 @@ export const updateCartQuantity = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Cart item quantity updated',
-            data: await calculatedCart(cart)
+            data: cart
         });
     } catch (error) {
         console.error(`Error updating cart item quantity: ${error.message}`);
@@ -141,7 +147,7 @@ export const updateCartItem = async (req, res) => {
     // Find the correct cart
     const cart = await Cart.findOne({
       $or: [{ userId }, { visitorId }]
-    });
+    }).populate("items.product","images price");
 
     if (!cart) {
       return res.status(404).json({ success: false, message: "Cart not found" });
@@ -155,13 +161,10 @@ export const updateCartItem = async (req, res) => {
     if (itemIndex === -1) {
       return res.status(404).json({ success: false, message: "Item not found in cart" });
     }
-
     // Update quantity (absolute update)
     cart.items[itemIndex].quantity = quantity;
-
     // Save updated cart
     await cart.save();
-
     res.json({
       success: true,
       message: "Quantity updated successfully",
@@ -198,8 +201,6 @@ export const applyCoupons = async (req, res) => {
 
 // Helper to get IDs
 function getIds(req) {
-    console.log('resssss',req);
-    
   return {
     userId: req.user?.id || null,
     visitorId: req.visitorId || req.cookies?.visitorId || null

@@ -1,3 +1,4 @@
+import errorHandler from '../middleware/error.middleware.js';
 import Cart from '../modules/cart.modules.js';
 import Product from '../modules/product.modules.js';
 export const getOrCreateCart = async (userId) =>{
@@ -65,7 +66,7 @@ export const addItemToCart = async (userId, item, visitorId) => {
                 if(cartItem.product.id === item.product) {
                     storeQuantity = cartItem.quantity + item.quantity;
                     if (storeQuantity > product.stock) {
-                        throw new Error(`Only ${product.stock} items available in stock`);
+                        return `Only ${product.stock} items available in stock`;
                         //  return res.status(400).json({ success: false, message: 'Not enough stock available' });
                     }
                     cartItem.quantity = storeQuantity;
@@ -83,7 +84,7 @@ export const addItemToCart = async (userId, item, visitorId) => {
     await cart.save();
     return await Cart.findById(cart._id).populate({
       path: 'items.product',
-      select: 'name price stock image'
+      select: 'name price stock'
     });
   } catch (error) {
     console.error(error);
@@ -97,7 +98,6 @@ export const updateCartItemQuantity = async (userId, itemId, quantity, visitorId
         const cart = userId ? userId : visitorId;
         
        const item = cart.items.id(itemId);
-        console.log('carttttttttttt', item);
         
         if(!item){
             throw new Error('Item not found in cart', 404);
@@ -108,7 +108,7 @@ export const updateCartItemQuantity = async (userId, itemId, quantity, visitorId
         }
         
         if(quantity > product.stock){
-            throw new Error(`Only ${product.stock} items available in stock`, 400);
+            throw new errorHandler(`Only ${product.stock} items available in stock`, 400);
         }
 
         item.quantity += quantity;
@@ -117,10 +117,8 @@ export const updateCartItemQuantity = async (userId, itemId, quantity, visitorId
 
         await cart.save();
         
-        return await Cart.findById(cart._id).populate({
-            path: 'items.product',
-            select: 'name price stock image'
-        });
+        let cartUpdated =  await Cart.findById(cart._id).populate("items.product","images price");
+        return cartUpdated;
     } catch (error) {
         console.error(`Error updating cart item quantity: ${error.message}`);
         throw new Error(`Error updating cart item quantity: ${error.message}`);

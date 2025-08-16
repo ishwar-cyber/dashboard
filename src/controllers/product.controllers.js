@@ -143,17 +143,24 @@ export const searchProduct = async (req, res) => {
   }
 };
 
-export const getProductById = async(req,res)=>{
-    try {
-        let product = await Product.findById(req.params.id);
-        res.status(200).json({
-            success: true,
-            data: product
-        })
-    } catch (error) {
-        res.status(500).json({success: false, message: error.message})
+export const getProductById = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id)
+      .populate("brand", "name slug")       // only select required fields
+      .populate("category", "name slug");  // populate category too
+
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
     }
-}
+
+    res.status(200).json({
+      success: true,
+      data: product
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 export const getProductByCategoryId = async (req, res) => {
     try {

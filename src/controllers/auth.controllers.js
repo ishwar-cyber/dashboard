@@ -6,7 +6,7 @@ import { JWT_EXP_IN, JWT_SECRET } from "../../config/env.js";
 export const signUp = async (req, res, next) => {
     try {
 
-        const { name, email,username, password, isRole } = req.body;
+        const { email,phone, username, password, confirmPassword, isRole } = req.body;
 
         // Checking if a user already exists
         const existingUser = await User.findOne({ email });
@@ -22,7 +22,7 @@ export const signUp = async (req, res, next) => {
         const hashPassword = await bcrypt.hash(password, salt);
 
         // Create User
-        const newUser = new User({ name, email, username, password: hashPassword, isRole })
+        const newUser = new User({ email, username, phone, confirmPassword, password: hashPassword, isRole })
         await newUser.save();
         newUser.password = undefined;
         // Generate JWT Token
@@ -31,7 +31,7 @@ export const signUp = async (req, res, next) => {
         res.status(200).json({
             message: 'User created successfully',
             success: true,
-            data: { token, user: newUser },
+            data: '',
         });
 
     } catch (error) {

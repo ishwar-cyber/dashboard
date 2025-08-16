@@ -3,8 +3,8 @@ import {addToCart, getCart, clearCart, updateCartItem, removeItemFromCart} from 
 
 const cartRouter = Router();
 cartRouter.get('/', getCart);
-cartRouter.put('/update/:id', updateCartItem);
-cartRouter.delete('/remove/:id', removeItemFromCart);
+cartRouter.put('/update/:id/quantity', updateCartItem);
+cartRouter.delete('/:id/remove', removeItemFromCart);
 cartRouter.post('/', addToCart);
 cartRouter.delete('/clear', clearCart);
 

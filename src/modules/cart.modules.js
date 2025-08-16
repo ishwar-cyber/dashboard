@@ -86,7 +86,7 @@ cartSchema.virtual('subTotal').get(function() {
 
 // // Virtual for total price of each item
 CartItemSchema.virtual('total').get(function() {
-    return this.subTotal - this.totalDiscount;
+    return this.subTotal;
 });
 
 // JSON transformation
