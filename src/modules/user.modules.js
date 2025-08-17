@@ -23,7 +23,6 @@ const userSchema = new mongoose.Schema({
     },
     confirmPassword: {
         type: String,
-        required: [true, 'user confime password is required'],
         minLength: 6
     },
     isRole:{

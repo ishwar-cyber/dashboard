@@ -1,14 +1,15 @@
-// error.middleware.js
-export default function errorHandler(err, req, res, next) {
-  console.error("Error:", err);
+// middleware/error.middleware.js
+export default (err, req, res, next) => {
+  console.error("🔥 ERROR:", err);
 
-  if (err.name === "ValidationError") {
-    return res.status(400).json({ message: err.message });
-  }
+  const statusCode = err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
 
-  if (err.code === 11000) {
-    return res.status(400).json({ message: "Duplicate key error" });
-  }
-
-  res.status(500).json({ message: "Something went wrong" });
-}
+  res.status(statusCode).json({
+    success: false,
+    status: err.status || "error",
+    message,
+    // include stack only in dev mode
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+  });
+};

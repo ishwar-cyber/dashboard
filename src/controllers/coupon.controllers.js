@@ -123,5 +123,35 @@ export const deleteCoupon = async (req, res) => {
 }
 
 
+export const applyCoupon = async(req, res) =>{
+     try {
+    const { code } = req.body;
 
+    const coupon = await Coupon.findOne({ code });
+    if (!coupon) {
+      return res.status(400).json({ message: "Invalid coupon" });
+    }
+
+    // Expiry check
+    if (new Date(coupon.expiry) < new Date()) {
+      return res.status(400).json({ message: "Coupon expired" });
+    }
+
+    // // Min order check
+    // if (cartTotal < coupon.minOrder) {
+    //   return res
+    //     .status(400)
+    //     .json({ message: `Minimum order ₹${coupon.minOrder} required` });
+    // }
+
+    res.json({
+      code: coupon.code,
+      type: coupon.type,
+      value: coupon.value,
+      message: "Coupon applied successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
 

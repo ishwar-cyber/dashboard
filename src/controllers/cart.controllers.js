@@ -1,11 +1,11 @@
 import Product from '../modules/product.modules.js';
 import Cart from '../modules/cart.modules.js';
-import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon, clearCartFromCart } from '../services/cart.service.js' 
+import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon } from '../services/cart.service.js' 
 import { calculatedCart } from '../services/cart.calculater.service.js';
 export const addToCart = async (req, res) => {
     try {
       const {productId, quantity = 1} = req.body;
-      const { authToken, visitorId } = getIds(req);
+      const { userId, visitorId } = getIds(req);
 
       if(!productId){
         return res.status(400).json({ success: false, message: 'Product id is Required' });
@@ -21,7 +21,7 @@ export const addToCart = async (req, res) => {
       if(Number(product.stock) < quantity){
           return res.status(400).json({ success: false, message: 'Not enough stock available' });
       }
-      const cart = await addItemToCart(authToken, {
+      const cart = await addItemToCart(userId, {
           product: product.id,
           name: product.name,
           image: product.productImages,
@@ -40,7 +40,7 @@ export const addToCart = async (req, res) => {
 }
 
 export const getCart = async (req, res) => {
-    try {
+    try {        
         const { userId, visitorId } = getIds(req);
         const cart = await Cart.findOne({ $or: [{ userId }, { visitorId }] })
             .populate("items.product", "stock images");
@@ -65,9 +65,7 @@ export const clearCart = async (req, res) => {
   res.json({ items: [] });
 };
 
-export const removeItemFromCart = async (req, res) => {
-    console.log('req params', req.params);
-    
+export const removeItemFromCart = async (req, res) => {    
   const { id } = req.params;
   const { userId, visitorId } = getIds(req);
 
@@ -179,20 +177,20 @@ export const updateCartItem = async (req, res) => {
 
 export const applyCoupons = async (req, res) => {
     try {
-        const userId = req.user?.id;
-        const visitorId = req.visitorId;
-        const { couponCode } = req.body;
-        const cart = await applyCoupon(userId, visitorId, couponCode);
-        if(!cart) {
-            return res.status(404).json({ success: false, message: 'Cart calculation failed' });
-        }
+      const userId = req.user?.id;
+      const visitorId = req.visitorId;
+      const { code } = req.body;
+      const cart = await applyCoupon(userId, visitorId, code);
+      if(!cart) {
+          return res.status(404).json({ success: false, message: 'Cart calculation failed' });
+      }
         // Assuming applyCoupon is a function that applies the coupon to the cart
 
-        res.status(200).json({
-            success: true,
-            message: 'Coupon applied successfully',
-            data: await calculatedCart(cart)
-        });
+      res.status(200).json({
+          success: true,
+          message: 'Coupon applied successfully',
+          data: await calculatedCart(cart)
+      });
     } catch (error) {
         console.error(`Error applying coupon: ${error.message}`);
         res.status(500).json({ success: false, message: 'Internal server error' });
@@ -202,7 +200,7 @@ export const applyCoupons = async (req, res) => {
 // Helper to get IDs
 function getIds(req) {
   return {
-    userId: req.user?.id || null,
+    userId: req.user?.id || req.cookies?.userId,
     visitorId: req.visitorId || req.cookies?.visitorId || null
   };
 }

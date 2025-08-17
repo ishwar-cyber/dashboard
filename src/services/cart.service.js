@@ -4,13 +4,13 @@ import Product from '../modules/product.modules.js';
 export const getOrCreateCart = async (userId) =>{
     try {
         
-        let cart = await Cart.findOne({user: userId, isActive: true}).populate({
+        let cart = await Cart.findOne({userId: userId, isActive: true}).populate({
             path: 'items.product',
             select: 'name price image'
         });
         if(!cart){
             cart = new Cart({
-                user:userId,
+                userId: userId,
                 items:[]
             })
             await cart.save();
@@ -50,7 +50,6 @@ export const addItemToCart = async (userId, item, visitorId) => {
       throw new Error("Cart not found");
     }
     const product = await Product.findById(item.product);
-    // console.log('produc tid ponmkn', product);
     
     if (!product) {
       throw new Error("Product not found");
@@ -75,6 +74,7 @@ export const addItemToCart = async (userId, item, visitorId) => {
         } else {
             if (item.quantity > product.stock) throw new Error(`Only ${product.stock} items available in stock`);
             cart.items.push(item);
+
         }
 
     // Update modified date
@@ -165,7 +165,7 @@ export const clearCartFromCart = async (userId, visitorId) => {
     }
 };
 
-export const applyCoupon = async (userId, visitorId, couponCode) => {
+export const applyCoupon1 = async (userId, visitorId, couponCode) => {
     try {
         const cart = userId ? await getOrCreateCart(userId) : await getCartByVisitorId(visitorId);
         
@@ -193,3 +193,37 @@ export const applyCoupon = async (userId, visitorId, couponCode) => {
         throw new Error(`Error applying coupon: ${error.message}`);
     }
 };
+
+
+export const applyCoupon = async (userId, visitorId, couponCode) => {
+  try {
+    const cart = userId
+      ? await getOrCreateCart(userId)
+      : await getCartByVisitorId(visitorId);
+
+    if (!cart) {
+      throw new ApiError(404, "Cart not found");
+    }
+
+    const discount = await validateCoupon(couponCode);
+    if (!discount) {
+      throw new ApiError(400, "Invalid or expired coupon code");
+    }
+
+    // Save discount info on cart
+    cart.discount = discount;
+    cart.modifiedOn = Date.now();
+    await cart.save();
+
+    return await Cart.findById(cart._id).populate({
+      path: "items.product",
+      select: "name price stock image",
+    });
+  } catch (error) {
+    console.error("Error applying coupon:", error);
+    if (error instanceof ApiError) {
+      throw error; // rethrow with status code
+    }
+    throw new ApiError(500, "Internal server error");
+  }
+}

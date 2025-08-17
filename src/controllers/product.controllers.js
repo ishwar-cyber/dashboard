@@ -97,9 +97,12 @@ export const filterProducts = async (req, res) => {
     const { categories, brands, minPrice, maxPrice } = req.query;
     const filter = {};
     // Filter by categories (comma separated IDs or slugs)
+     // ✅ Category filter (array in product schema)
     if (categories) {
-      filter.category = { $in: categories.split(',') };
+      // support multiple categories (?category=tv&category=mobile)
+      filter.category = { $in: Array.isArray(categories) ? categories : [categories] };
     }
+
     // Filter by brands
     if (brands) {
       filter.brand = { $in: brands.split(',') };
@@ -110,8 +113,8 @@ export const filterProducts = async (req, res) => {
       if (minPrice) filter.price.$gte = Number(minPrice);
       if (maxPrice) filter.price.$lte = Number(maxPrice);
     }
-    const products = await Product.find(filter).lean();
-    console.log('filter product', products);
+    
+    const products = await Product.find(filter);
     res.json(products);
 
   } catch (err) {
@@ -122,7 +125,7 @@ export const filterProducts = async (req, res) => {
 
 export const searchProduct = async (req, res) => {
   try {
-    const query = req.query.q || '';
+    const query = req.query.products || '';
     if (!query.trim()) {
       return res.status(400).json({ success: false, message: 'Search query is required' });
     }

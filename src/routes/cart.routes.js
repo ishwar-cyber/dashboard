@@ -5,7 +5,7 @@ const cartRouter = Router();
 cartRouter.get('/', getCart);
 cartRouter.put('/update/:id/quantity', updateCartItem);
 cartRouter.delete('/:id/remove', removeItemFromCart);
-cartRouter.post('/', addToCart);
+cartRouter.post('/add', addToCart);
 cartRouter.delete('/clear', clearCart);
 
 

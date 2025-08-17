@@ -1,6 +1,8 @@
 import User from "../modules/user.modules.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import AppError from "../utilities/appError.js";
+import Cart from '../modules/cart.modules.js'
 import { JWT_EXP_IN, JWT_SECRET } from "../../config/env.js";
 
 export const signUp = async (req, res, next) => {
@@ -57,7 +59,7 @@ export const signIn = async(req, res, next)=>{
             error.statusCode = 404;
             throw error;
         }
-        const token = jwt.sign({userId:user._id},JWT_SECRET,{expiresIn: JWT_EXP_IN});
+        const token = jwt.sign({userId: user._id},JWT_SECRET,{expiresIn: JWT_EXP_IN});
 
         res.status(200).json({
             success: true,
@@ -77,15 +79,11 @@ export const signIn = async(req, res, next)=>{
 }
 
 export const userSignIn = async(req, res, next)=>{
-    try {
-        console.log('logged in', req.body);
-        
+    try {        
         const {email, password} = req.body;
         const user = await User.findOne({email});
         if(!user){
-            const error = new Error('User not found');
-            error.statusCode = 404;
-            throw error;
+            next(new AppError('User not found, please register', 404));
         }
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if(!isPasswordValid){
@@ -94,7 +92,13 @@ export const userSignIn = async(req, res, next)=>{
             throw error;
         }
         const token = jwt.sign({userId:user._id},JWT_SECRET,{expiresIn: JWT_EXP_IN});
-
+        // Set cookie
+        res.cookie("userId", user._id, {
+            httpOnly: true,   // can't access from JS
+            secure: false,    // set to true if using https
+            sameSite: "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
         res.status(200).json({
             success: true,
             message: 'User signed in successfully',
@@ -115,3 +119,49 @@ export const userSignIn = async(req, res, next)=>{
 export const signOut = async(req, res, next)=>{
     
 }
+
+export const mergeCartAfterLogin = async (req, res) => {
+  try { 
+    const userId = req.cookies.userId; // from JWT after login
+    const { visitorId } = req.body; // frontend sends visitorId
+    
+    if (!visitorId) {
+      return res.json({ message: "No visitor cart to merge" });
+    }
+
+    // Get visitor cart
+    const visitorCart = await Cart.findOne({ visitorId });
+    if (!visitorCart) {
+      return res.json({ message: "No visitor cart found" });
+    }
+
+    // Get or create user cart
+    let userCart = await Cart.findOne({ userId });
+    if (!userCart) {
+      userCart = new Cart({ userId, items: [] });
+    }
+
+    // Merge items
+    visitorCart.items.forEach(visitorItem => {
+      const existingItem = userCart.items.find(
+        item => item.product.toString() === visitorItem.product.toString()
+      );
+      if (existingItem) {
+        existingItem.quantity += visitorItem.quantity;
+      } else {
+        userCart.items.push(visitorItem);
+      }
+    });
+
+    // Save merged cart
+    await userCart.save();
+
+    // Delete visitor cart
+    await Cart.deleteOne({ visitorId });
+
+    res.json({ message: "Cart merged successfully", cart: userCart });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error merging cart" });
+  }
+};

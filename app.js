@@ -35,7 +35,6 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(generateVisitorIds);
 
-
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/products', productRouter);
@@ -49,11 +48,12 @@ app.use('/api/v1/pincode', pincodeRouter);
 
 
 
-app.use(errorHandling);
 
 app.get('/', (req,res)=>{
     res.send("shooppyness api working fine")
 });
+
+app.use(errorHandling);
 
 app.listen(PORT,async()=>{
     console.log(`shoppyness api working http://localhost:${PORT}`);
