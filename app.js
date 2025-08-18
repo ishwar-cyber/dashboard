@@ -47,7 +47,14 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-app.use(generateVisitorIds);
+
+// ✅ Apply visitor middleware only for non-auth routes
+app.use((req, res, next) => {
+  if (!req.headers.authorization) {
+    return generateVisitorId(req, res, next);
+  }
+  next();
+});
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);
