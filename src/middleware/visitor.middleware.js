@@ -1,16 +1,26 @@
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 
-export const generateVisitorIds = (req, res, next) => {
- if (!req.cookies.visitorId) {
-    const visitorId = uuidv4();
+export const generateVisitorId = (req, res, next) => {
+  // If user already has visitorId cookie → use it
+  let visitorId = req.cookies?.visitorId;
+
+  if (!visitorId) {
+    // ✅ Generate new one
+    visitorId = uuidv4();
+
+    // ✅ Save in cookies (HTTP only for security)
     res.cookie("visitorId", visitorId, {
-      httpOnly: false,  // set to true if you don't need JS access
-      secure: false,    // true if using HTTPS
-      maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+      httpOnly: true,     // cannot access via JS
+      secure: true,       // only over HTTPS
+      sameSite: "strict", // prevents CSRF
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
-    req.visitorId = visitorId;
+
+    console.log("New visitorId created:", visitorId);
   } else {
-    req.visitorId = req.cookies.visitorId;
+    console.log("Existing visitorId:", visitorId);
   }
+
+  req.visitorId = visitorId;
   next();
 };
