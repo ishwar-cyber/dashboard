@@ -201,7 +201,7 @@ export const applyCoupons = async (req, res) => {
 function getIds(req) {
   return {
     userId: req.cookies?.userId,
-    visitorId: req.cookies?.visitorId || null
+    visitorId: req.visitorId || req.cookies?.visitorId || null
   };
 }
 
