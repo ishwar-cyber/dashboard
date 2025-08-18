@@ -13,7 +13,8 @@ export const generateVisitorId = (req, res, next) => {
     res.cookie("visitorId", visitorId, {
       httpOnly: true,     // cannot access via JS
       secure: true,       // only over HTTPS
-      sameSite: "strict", // prevents CSRF
+      sameSite: "none", // prevents CSRF
+      path:"/",
       maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
     console.log("New visitorId created:", visitorId);
