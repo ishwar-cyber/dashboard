@@ -24,11 +24,25 @@ app.use(express.urlencoded({extended: false,limit: "16kb"}));
 app.use(express.static("public"));
 app.use(cookieParser());
 
+const allowedOrigins = [
+  "https://application-shoppyness.vercel.app",
+  "https://admin-mu-orcin.vercel.app"
+];
+
 const corsOptions = {
-  origin: 'https://application-shoppyness.vercel.app',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like Postman or server-to-server)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 };
 
 app.use(cors(corsOptions));
