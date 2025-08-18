@@ -26,7 +26,8 @@ app.use(cookieParser());
 
 const allowedOrigins = [
   "https://application-shoppyness.vercel.app",
-  "https://admin-mu-orcin.vercel.app"
+  "https://admin-mu-orcin.vercel.app",
+  "http://localhost:4400","http://localhost:4200"
 ];
 
 const corsOptions = {
@@ -66,9 +67,6 @@ app.use('/api/v1/cart', cartRouter);
 app.use('/api/v1/coupons', couponRouter);
 app.use('/api/v1/subcategory', subCategoryRouter);
 app.use('/api/v1/pincode', pincodeRouter);
-
-
-
 
 app.get('/', (req,res)=>{
     res.send("shooppyness api working fine")
