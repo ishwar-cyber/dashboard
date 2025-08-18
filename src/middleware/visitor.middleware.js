@@ -12,8 +12,8 @@ export const generateVisitorId = (req, res, next) => {
     // ✅ Save in cookies (HTTP only for security)
     res.cookie("visitorId", visitorId, {
       httpOnly: true,     // cannot access via JS
-      secure: true,       // only over HTTPS
-      sameSite: "none", // prevents CSRF
+      secure: process.env.NODE_ENV === "production", // Secure only in prod
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       path:"/",
       maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
