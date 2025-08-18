@@ -200,8 +200,8 @@ export const applyCoupons = async (req, res) => {
 // Helper to get IDs
 function getIds(req) {
   return {
-    userId: req.user?.id || req.cookies?.userId,
-    visitorId: req.visitorId || req.cookies?.visitorId || null
+    userId: req.cookies?.userId,
+    visitorId: req.cookies?.visitorId || null
   };
 }
 
