@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 
 export const generateVisitorId = (req, res, next) => {
   // If user already has visitorId cookie → use it
-  let visitorId = req.cookies?.visitorId;
+  let visitorId = req.cookie?.visitorId;
   console.log('visitoredrttyy',visitorId);
 
   if (!visitorId) {
@@ -12,8 +12,8 @@ export const generateVisitorId = (req, res, next) => {
     // ✅ Save in cookies (HTTP only for security)
     res.cookie("visitorId", visitorId, {
       httpOnly: true,     // cannot access via JS
-      secure: process.env.NODE_ENV === "production", // Secure only in prod
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: true, // Secure only in prod
+      sameSite:"none",
       path:"/",
       maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
