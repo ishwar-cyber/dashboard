@@ -15,7 +15,7 @@ import cartRouter from "./src/routes/cart.routes.js";
 import couponRouter from "./src/routes/coupon.routers.js";
 import subCategoryRouter from "./src/routes/sub_category.routes.js";
 import pincodeRouter from "./src/routes/service_pincode.routers.js";
-import { generateVisitorId } from './src/middleware/visitor.middleware.js';
+
 
 const app = express();
 
@@ -48,14 +48,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-
-// ✅ Apply visitor middleware only for non-auth routes
-app.use((req, res, next) => {
-  if (!req.headers.authorization) {
-    return generateVisitorId(req, res, next);
-  }
-  next();
-});
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);
