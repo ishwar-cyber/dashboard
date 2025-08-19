@@ -2,7 +2,8 @@ import { v4 as uuidv4 } from "uuid";
 
 export const generateVisitorId = (req, res, next) => {
   // If user already has visitorId cookie → use it
-  let visitorId = req.cookie?.visitorId;
+  
+  let visitorId = req.cookies?.visitorId || req.visitorId;
   console.log('visitoredrttyy',visitorId);
 
   if (!visitorId) {
