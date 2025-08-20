@@ -40,21 +40,40 @@ export const addToCart = async (req, res) => {
 }
 
 export const getCart = async (req, res) => {
-    try {        
-        const { userId, visitorId } = getIds(req);
-        const cart = await Cart.findOne({ $or: [{ userId }, { visitorId }] })
-            .populate("items.product", "stock images");
-          
-        res.status(200).json({
-          message:'Get all Cart',
-          success: true,
-          data: cart || { items: [] }
-        })   
-    } catch (error) {
-        console.error(`Error fetching cart: ${error.message}`);
-        res.status(500).json({ success: false, message: 'Internal server error' });
+  try {
+    const { userId, visitorId } = getIds(req);
+
+    // ✅ Build query dynamically
+    let query = null;
+    if (userId) {
+      query = { userId };
+    } else if (visitorId) {
+      query = { visitorId };
     }
+
+    // If no identifiers → return empty cart safely
+    if (!query) {
+      return res.status(200).json({
+        message: "Get all Cart",
+        success: true,
+        data: { items: [] }
+      });
+    }
+
+    const cart = await Cart.findOne(query)
+      .populate("items.product", "stock images");
+
+    res.status(200).json({
+      message: "Get all Cart",
+      success: true,
+      data: cart || { items: [] }
+    });
+  } catch (error) {
+    console.error(`Error fetching cart: ${error.message}`);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
 };
+
 export const clearCart = async (req, res) => {
   const { userId, visitorId } = getIds(req);
   const cart = await Cart.find({ $or: [{ userId }, { visitorId }] });
