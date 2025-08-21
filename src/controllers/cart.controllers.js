@@ -218,9 +218,9 @@ export const applyCoupons = async (req, res) => {
 
 // Helper to get IDs
 function getIds(req) {
-    console.log('req.', req.visitorId, 'new', req.cookies);
+    console.log('req.', req.userId, 'new', req.cookies);
   return {
-    userId: req.cookies?.userId,
+    userId: req.userId || req.cookies?.userId,
     visitorId: req.visitorId || req.cookies?.visitorId
   };
 }
