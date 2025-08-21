@@ -15,6 +15,7 @@ import cartRouter from "./src/routes/cart.routes.js";
 import couponRouter from "./src/routes/coupon.routers.js";
 import subCategoryRouter from "./src/routes/sub_category.routes.js";
 import pincodeRouter from "./src/routes/service_pincode.routers.js";
+import paymentRoute from "./src/routes/payment.routes.js";
 
 
 const app = express();
@@ -59,6 +60,7 @@ app.use('/api/v1/cart', cartRouter);
 app.use('/api/v1/coupons', couponRouter);
 app.use('/api/v1/subcategory', subCategoryRouter);
 app.use('/api/v1/pincode', pincodeRouter);
+app.use('/api/v1/payment/',paymentRoute);
 
 app.get('/', (req,res)=>{
     res.send("shooppyness api working fine")

@@ -99,6 +99,8 @@ export const userSignIn = async(req, res, next)=>{
             sameSite: "strict",
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
+
+        await mergeCartAfterLogin(user._id, req.cookies.visitorId);
         res.status(200).json({
             success: true,
             message: 'User signed in successfully',
@@ -120,19 +122,18 @@ export const signOut = async(req, res, next)=>{
     
 }
 
-export const mergeCartAfterLogin = async (req, res) => {
+const mergeCartAfterLogin = async (userId, visitorId) => {
   try { 
-    const userId = req.cookies.userId; // from JWT after login
-    const { visitorId } = req.body; // frontend sends visitorId
+    console.log('visitor', visitorId, '----', userId);
     
     if (!visitorId) {
-      return res.json({ message: "No visitor cart to merge" });
+       return ({ message: "No visitor cart to merge" });
     }
 
     // Get visitor cart
     const visitorCart = await Cart.findOne({ visitorId });
     if (!visitorCart) {
-      return res.json({ message: "No visitor cart found" });
+      return ({ message: "No visitor cart found" });
     }
 
     // Get or create user cart
@@ -152,14 +153,15 @@ export const mergeCartAfterLogin = async (req, res) => {
         userCart.items.push(visitorItem);
       }
     });
-
+    console.log('user cart', userCart);
+    
     // Save merged cart
     await userCart.save();
 
     // Delete visitor cart
     await Cart.deleteOne({ visitorId });
 
-    res.json({ message: "Cart merged successfully", cart: userCart });
+    return ({ message: "Cart merged successfully", cart: userCart });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error merging cart" });

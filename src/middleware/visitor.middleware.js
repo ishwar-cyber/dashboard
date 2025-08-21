@@ -15,8 +15,7 @@ export const generateVisitorId = (req, res, next) => {
       httpOnly: false,
       secure: true,
       sameSite: "none",
-      path:"/",
-      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+      maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
     });
     console.log("New visitorId created:", visitorId);
   } else {

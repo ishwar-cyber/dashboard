@@ -1,6 +1,6 @@
 import Product from "../modules/product.modules.js";
 import Category from "../modules/category.modules.js";
-import SubCategory from "../modules/subCategory.modules.js;
+import SubCategory from '../modules/sub_category.modules.js';
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 import { getProducts, create } from "../services/product.service.js";
 export const createProduct = async(req, res, next)=>{
@@ -302,13 +302,14 @@ export const updateProductById = async (req, res) => {
     }
 };
 
-export const headerCategorySubCategory = async (req, res) => {
+export const getHeaderCategorySubCategory = async (req, res) => {
   try {
     const categories = await Category.find();
-
+    console.log('category', categories);
+    
     const results = await Promise.all(
       categories.map(async (cat) => {
-        const subcategories = await SubCategory.find({ categoryId: cat._id });
+        const subcategories = await SubCategory.find({ category: cat.id });
         return {
           _id: cat._id,
           name: cat.name,
