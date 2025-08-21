@@ -1,5 +1,6 @@
 import Product from "../modules/product.modules.js";
 import Category from "../modules/category.modules.js";
+import SubCategory from "../modules/subCategory.modules.js;
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 import { getProducts, create } from "../services/product.service.js";
 export const createProduct = async(req, res, next)=>{
@@ -300,6 +301,32 @@ export const updateProductById = async (req, res) => {
         });
     }
 };
+
+export const headerCategorySubCategory = async (req, res) => {
+  try {
+    const categories = await Category.find();
+
+    const results = await Promise.all(
+      categories.map(async (cat) => {
+        const subcategories = await SubCategory.find({ categoryId: cat._id });
+        return {
+          _id: cat._id,
+          name: cat.name,
+          slug: cat.slug,
+          subcategories: subcategories.map((sub) => ({
+            _id: sub._id,
+            name: sub.name,
+            slug: sub.slug
+          }))
+        };
+      })
+    );
+
+    res.json({ success: true, data: results });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
 
 export const uploadImages = async(req, res)=>{
     const file = req.files['image'];
