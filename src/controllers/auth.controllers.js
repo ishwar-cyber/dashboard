@@ -218,36 +218,37 @@ console.log('workinf fine',user._id);
 
 const mergeCartAfterLogin = async (userId, visitorId) => {
   if (!visitorId) return;
-console.log('workinf visitor',visitorId);
-  // Find visitor cart
+
   const visitorCart = await Cart.findOne({ visitorId });
   if (!visitorCart) return;
 
-  // Find or create user cart
   let userCart = await Cart.findOne({ userId });
   if (!userCart) {
-    userCart = new Cart({ userId, items: [] });
+    // no cart → just assign visitor cart to user
+    visitorCart.userId = userId;
+    visitorCart.visitorId = undefined;
+    await visitorCart.save();
+    return;
   }
 
-  // Merge items
-  visitorCart.items.forEach((visitorItem) => {
-    const existingItem = userCart.items.find(
-      (item) => item.product.toString() === visitorItem.product.toString()
+  // merge carts
+  for (const vItem of visitorCart.items) {
+    const existing = userCart.items.find(
+      (uItem) => uItem.product.toString() === vItem.product.toString()
     );
-    if (existingItem) {
-      existingItem.quantity += visitorItem.quantity;
+    if (existing) {
+      existing.quantity += vItem.quantity;
     } else {
-      // clone visitor item to avoid ObjectId reference issues
       userCart.items.push({
-        product: visitorItem.product,
-        quantity: visitorItem.quantity,
+        product: vItem.product,
+        name: vItem.name,
+        price: vItem.price,
+        quantity: vItem.quantity,
+        image: vItem.image,
       });
     }
-  });
+  }
 
-  // Save updated user cart
   await userCart.save();
-
-  // Remove visitor cart
   await Cart.deleteOne({ visitorId });
 };
