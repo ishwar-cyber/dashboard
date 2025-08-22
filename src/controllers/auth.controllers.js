@@ -192,7 +192,7 @@ export const userSignIn = async (req, res, next) => {
       sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-
+console.log('workinf fine',user._id);
     // Merge visitor cart into user cart
     await mergeCartAfterLogin(user._id, req.cookies.visitorId);
 
@@ -218,7 +218,7 @@ export const userSignIn = async (req, res, next) => {
 
 const mergeCartAfterLogin = async (userId, visitorId) => {
   if (!visitorId) return;
-
+console.log('workinf visitor',visitorId);
   // Find visitor cart
   const visitorCart = await Cart.findOne({ visitorId });
   if (!visitorCart) return;
