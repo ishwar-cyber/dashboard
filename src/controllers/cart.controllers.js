@@ -1,5 +1,6 @@
 import Product from '../modules/product.modules.js';
 import Cart from '../modules/cart.modules.js';
+import User from '../modules/user.modules.js';
 import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon } from '../services/cart.service.js' 
 import { calculatedCart } from '../services/cart.calculater.service.js';
 import { JWT_SECRET } from "../../config/env.js";
@@ -219,25 +220,46 @@ export const applyCoupons = async (req, res) => {
 }
 
 // Helper to get IDs
-function getIds(req) {
-    let userId = '';
-    let visitorId = '';
-    console.log('check token',req.headers);
-    let token = '';
-    let authToken =  req.headers.authorization ? req.headers.authorization : req.headers.authtoken ? req.headers.authtoken : null;
-    if ((authToken.startsWith('Bearer'))) token = authToken.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-    userId = await User.findById(decoded.userId);    
-    console.log('user',userId);
-    if(!userId){
-        visitorId = req.visitorId || req.cookies?.visitorId;
+Helper to get IDs
+export async function getIds(req) {
+  try {
+    let userId = null;
+    let visitorId = null;
+
+    // ✅ Extract token
+    const authHeader =
+      req.headers.authorization ||
+      req.headers.authtoken ||
+      null;
+
+    let token = null;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
     }
-    console.log('req.', req.userId, 'new', req.cookies);
-  return {
-    userId,
-    visitorId
-  };
+
+    // ✅ Decode token if present
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+
+        // Only pick ID, don’t fetch full user unless needed
+        const user = await User.findById(decoded.userId).select("_id");
+        if (user) {
+          userId = user._id.toString();
+        }
+      } catch (err) {
+        console.warn("Invalid token:", err.message);
+      }
+    }
+
+    // ✅ If no user, fallback to visitor
+    if (!userId) {
+      visitorId = req.visitorId || req.cookies?.visitorId || null;
+    }
+
+    return { userId, visitorId };
+  } catch (err) {
+    console.error("getIds error:", err.message);
+    return { userId: null, visitorId: req.visitorId || req.cookies?.visitorId || null };
+  }
 }
-
-
-
