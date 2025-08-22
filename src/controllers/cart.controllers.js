@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken";
 import Product from '../modules/product.modules.js';
 import Cart from '../modules/cart.modules.js';
 import User from '../modules/user.modules.js';
