@@ -78,7 +78,7 @@ export const signIn = async(req, res, next)=>{
     }
 }
 
-export const userSignIn = async(req, res, next)=>{
+export const userSignInOne = async(req, res, next)=>{
     try {        
         const {email, password} = req.body;
         const user = await User.findOne({email});
@@ -122,7 +122,7 @@ export const signOut = async(req, res, next)=>{
     
 }
 
-const mergeCartAfterLogin = async (userId, visitorId) => {
+const mergeCartAfter = async (userId, visitorId) => {
   try { 
     console.log('visitor', visitorId, '----', userId);
     
@@ -166,4 +166,88 @@ const mergeCartAfterLogin = async (userId, visitorId) => {
     console.error(err);
     res.status(500).json({ message: "Error merging cart" });
   }
+};
+
+export const userSignIn = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return next(new AppError("User not found, please register", 404));
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return next(new AppError("Password is not valid", 401));
+    }
+
+    const token = jwt.sign({ userId: user._id }, JWT_SECRET, {
+      expiresIn: JWT_EXP_IN,
+    });
+
+    // Set user cookie
+    res.cookie("userId", user._id, {
+      httpOnly: true,
+      secure: false, // true in production with https
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    // Merge visitor cart into user cart
+    await mergeCartAfterLogin(user._id, req.cookies.visitorId);
+
+    // Clear visitor cookie after merge
+    res.clearCookie("visitorId");
+
+    res.status(200).json({
+      success: true,
+      message: "User signed in successfully",
+      token,
+      user: {
+        _id: user._id,
+        email: user.email,
+        username: user.username,
+        name: user.name,
+        role: user.isRole,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const mergeCartAfterLogin = async (userId, visitorId) => {
+  if (!visitorId) return;
+
+  // Find visitor cart
+  const visitorCart = await Cart.findOne({ visitorId });
+  if (!visitorCart) return;
+
+  // Find or create user cart
+  let userCart = await Cart.findOne({ userId });
+  if (!userCart) {
+    userCart = new Cart({ userId, items: [] });
+  }
+
+  // Merge items
+  visitorCart.items.forEach((visitorItem) => {
+    const existingItem = userCart.items.find(
+      (item) => item.product.toString() === visitorItem.product.toString()
+    );
+    if (existingItem) {
+      existingItem.quantity += visitorItem.quantity;
+    } else {
+      // clone visitor item to avoid ObjectId reference issues
+      userCart.items.push({
+        product: visitorItem.product,
+        quantity: visitorItem.quantity,
+      });
+    }
+  });
+
+  // Save updated user cart
+  await userCart.save();
+
+  // Remove visitor cart
+  await Cart.deleteOne({ visitorId });
 };
