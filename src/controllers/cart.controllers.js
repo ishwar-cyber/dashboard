@@ -222,6 +222,7 @@ export const applyCoupons = async (req, res) => {
 function getIds(req) {
     let userId = '';
     let visitorId = '';
+    console.log('check token',req.headers);
     const token = req.headers["authorisation"]?.split(" ")[1];
     if(token) {
         try{
