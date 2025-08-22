@@ -2,6 +2,7 @@ import Product from '../modules/product.modules.js';
 import Cart from '../modules/cart.modules.js';
 import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon } from '../services/cart.service.js' 
 import { calculatedCart } from '../services/cart.calculater.service.js';
+
 export const addToCart = async (req, res) => {
     try {
       const {productId, quantity = 1} = req.body;
@@ -218,10 +219,24 @@ export const applyCoupons = async (req, res) => {
 
 // Helper to get IDs
 function getIds(req) {
+    let userId = '';
+    let visitorid = '';
+    const token = req.headers["authorisation"]?.split(" ")[1];
+    if(token) {
+        try{
+            const decoded= jwt.verify(token, JWT_SECRET);
+            useraId= decoded.userId;
+        } catch { 
+            console.log('Invalid token, falling back to visitor id');
+        }
+    }
+    if(!userId){
+        visitorId = req.visitorId || req.cookies?.visitorId;
+    }
     console.log('req.', req.userId, 'new', req.cookies);
   return {
-    userId: req.userId || req.cookies?.userId,
-    visitorId: req.visitorId || req.cookies?.visitorId
+    userId,
+    visitorId
   };
 }
 
