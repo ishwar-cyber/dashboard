@@ -1,5 +1,6 @@
 import Product from "../modules/product.modules.js";
 import Category from "../modules/category.modules.js";
+import Brand from "../modules/brand.modules.js";
 import SubCategory from '../modules/sub_category.modules.js';
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 import { getProducts, create } from "../services/product.service.js";
@@ -97,30 +98,53 @@ export const filterProducts = async (req, res) => {
   try {
     const { categories, brands, minPrice, maxPrice } = req.query;
     const filter = {};
-    // Filter by categories (comma separated IDs or slugs)
-     // ✅ Category filter (array in product schema)
+
+    // 🔹 Category filter (supports multiple)
     if (categories) {
-      // support multiple categories (?category=tv&category=mobile)
-      filter.category = { $in: Array.isArray(categories) ? categories : [categories] };
+      const categoryList = categories.split(",").map((c) => c.trim());
+      const categoryDocs = await Category.find({
+        $or: [
+          { slug: { $in: categoryList } },
+          { name: { $in: categoryList } }
+        ],
+      }).select("_id");
+
+      if (categoryDocs.length > 0) {
+        filter.category = { $in: categoryDocs.map((c) => c._id) };
+      }
     }
 
-    // Filter by brands
+    // 🔹 Brand filter (supports multiple)
     if (brands) {
-      filter.brand = { $in: brands.split(',') };
+      const brandList = brands.split(",").map((b) => b.trim());
+      const brandDocs = await Brand.find({ name: { $in: brandList } }).select("_id");
+
+      if (brandDocs.length > 0) {
+        filter.brand = { $in: brandDocs.map((b) => b._id) };
+      }
     }
-    // Filter by price range
+
+    // 🔹 Price filter
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);
       if (maxPrice) filter.price.$lte = Number(maxPrice);
     }
-    
-    const products = await Product.find(filter);
-    res.json(products);
 
+    // 🔹 Fetch products with populated refs
+    const products = await Product.find(filter)
+      .populate("brand", "name")
+      .populate("category", "name slug")
+      .populate("subCategory", "name slug");
+
+    res.json({
+      success: true,
+      count: products.length,
+      data: products,
+    });
   } catch (err) {
-    console.error('Error fetching products:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error fetching products:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -306,7 +330,7 @@ export const getHeaderCategorySubCategory = async (req, res) => {
   try {
     const categories = await Category.find();
     console.log('category', categories);
-    
+  
     const results = await Promise.all(
       categories.map(async (cat) => {
         const subcategories = await SubCategory.find({ category: cat.id });

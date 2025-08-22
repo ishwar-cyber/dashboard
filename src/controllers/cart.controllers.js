@@ -9,7 +9,16 @@ import { JWT_SECRET } from "../../config/env.js";
 export const addToCart = async (req, res) => {
     try {
       const {productId, quantity = 1} = req.body;
-      const { userId, visitorId } = getIds(req);
+      const validation =  (await getIds(req));
+      const userId = validation.userId;
+      const visitorId = validation.visitorId;
+        // ✅ Build query dynamically
+      let query = null;
+      if (userId) {
+        query = { userId };
+      } else if (visitorId) {
+        query = { visitorId };
+      }
 
       if(!productId){
         return res.status(400).json({ success: false, message: 'Product id is Required' });
@@ -45,9 +54,10 @@ export const addToCart = async (req, res) => {
 
 export const getCart = async (req, res) => {
   try {
-    const { userId, visitorId } = getIds(req);
-
-    // ✅ Build query dynamically
+    const validation =  (await getIds(req));
+    const userId = validation.userId;
+    const visitorId = validation.visitorId;
+      // ✅ Build query dynamically
     let query = null;
     if (userId) {
       query = { userId };
@@ -79,7 +89,16 @@ export const getCart = async (req, res) => {
 };
 
 export const clearCart = async (req, res) => {
-  const { userId, visitorId } = getIds(req);
+ const validation =  (await getIds(req));
+  const userId = validation.userId;
+  const visitorId = validation.visitorId;
+    // ✅ Build query dynamically
+  let query = null;
+  if (userId) {
+    query = { userId };
+  } else if (visitorId) {
+    query = { visitorId };
+  }
   const cart = await Cart.find({ $or: [{ userId }, { visitorId }] });
   if (cart) {
     cart.items = [];
@@ -90,7 +109,16 @@ export const clearCart = async (req, res) => {
 
 export const removeItemFromCart = async (req, res) => {    
   const { id } = req.params;
-  const { userId, visitorId } = getIds(req);
+  const validation =  (await getIds(req));
+  const userId = validation.userId;
+  const visitorId = validation.visitorId;
+    // ✅ Build query dynamically
+  let query = null;
+  if (userId) {
+    query = { userId };
+  } else if (visitorId) {
+    query = { visitorId };
+  }
 
   let cart = await Cart.findOne({ $or: [{ userId }, { visitorId }] }).populate("items.product","images price");
   if (cart) {
@@ -106,28 +134,20 @@ export const removeItemFromCart = async (req, res) => {
   })
 };
 
-// export const removeItemFromCart = async (req, res) => {
-//     try {
-//         const userId = req.user?.id;
-//         const visitorId = req.visitorId;
-//         const { itemId } = req.params;
-
-//         const cart =  await removeItemCart(userId, visitorId, itemId);
-//         res.status(200).json({
-//             success: true,
-//             message: 'Item removed from cart',
-//             data: await calculatedCart(cart)
-//         });
-//     } catch (error) {
-//         console.error(`Error removing item from cart: ${error.message}`);
-//         res.status(500).json({ success: false, message: 'Internal server error' });
-//     }
-// };
 
 export const updateCartQuantity = async (req, res) => {
     try {
         
-        const { userId, visitorId } = getIds(req);
+      const validation =  (await getIds(req));
+      const userId = validation.userId;
+      const visitorId = validation.visitorId;
+        // ✅ Build query dynamically
+      let query = null;
+      if (userId) {
+        query = { userId };
+      } else if (visitorId) {
+        query = { visitorId };
+      }
         const { id } = req.params;
         const { quantity } = req.body;  
 
@@ -200,8 +220,16 @@ export const updateCartItem = async (req, res) => {
 
 export const applyCoupons = async (req, res) => {
     try {
-      const userId = req.user?.id;
-      const visitorId = req.visitorId;
+    const validation =  (await getIds(req));
+    const userId = validation.userId;
+    const visitorId = validation.visitorId;
+      // ✅ Build query dynamically
+    let query = null;
+    if (userId) {
+      query = { userId };
+    } else if (visitorId) {
+      query = { visitorId };
+    }
       const { code } = req.body;
       const cart = await applyCoupon(userId, visitorId, code);
       if(!cart) {
@@ -223,9 +251,8 @@ export const applyCoupons = async (req, res) => {
 // Helper to get IDs
 export async function getIds(req) {
   try {
-    let userId = null;
-    let visitorId = null;
-
+    let userId = '';
+    let visitorId = '';
     // ✅ Extract token
     const authHeader =
       req.headers.authorization ||
@@ -236,17 +263,14 @@ export async function getIds(req) {
     if (authHeader && authHeader.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
     }
-
     // ✅ Decode token if present
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
 
         // Only pick ID, don’t fetch full user unless needed
-        const user = await User.findById(decoded.userId).select("_id");
-        if (user) {
-          userId = user._id.toString();
-        }
+       userId = decoded.userId
+    
       } catch (err) {
         console.warn("Invalid token:", err.message);
       }

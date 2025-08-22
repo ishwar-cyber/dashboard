@@ -78,95 +78,9 @@ export const signIn = async(req, res, next)=>{
     }
 }
 
-export const userSignInOne = async(req, res, next)=>{
-    try {        
-        const {email, password} = req.body;
-        const user = await User.findOne({email});
-        if(!user){
-            next(new AppError('User not found, please register', 404));
-        }
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if(!isPasswordValid){
-            const error = new Error('Password is not valid');
-            error.statusCode = 404;
-            throw error;
-        }
-        const token = jwt.sign({userId:user._id},JWT_SECRET,{expiresIn: JWT_EXP_IN});
-        // Set cookie
-        res.cookie("userId", user._id, {
-            httpOnly: true,   // can't access from JS
-            secure: false,    // set to true if using https
-            sameSite: "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-        });
-
-        await mergeCartAfterLogin(user._id, req.cookies.visitorId);
-        res.status(200).json({
-            success: true,
-            message: 'User signed in successfully',
-            token,
-            user:{
-                _id: user._id,
-                email: user.email,
-                username: user.username,
-                name: user.name,
-                role: user.isRole,
-            }
-        });
-    } catch (error) {
-        next(error);
-    }
-}
-
 export const signOut = async(req, res, next)=>{
     
 }
-
-const mergeCartAfter = async (userId, visitorId) => {
-  try { 
-    console.log('visitor', visitorId, '----', userId);
-    
-    if (!visitorId) {
-       return ({ message: "No visitor cart to merge" });
-    }
-
-    // Get visitor cart
-    const visitorCart = await Cart.findOne({ visitorId });
-    if (!visitorCart) {
-      return ({ message: "No visitor cart found" });
-    }
-
-    // Get or create user cart
-    let userCart = await Cart.findOne({ userId });
-    if (!userCart) {
-      userCart = new Cart({ userId, items: [] });
-    }
-
-    // Merge items
-    visitorCart.items.forEach(visitorItem => {
-      const existingItem = userCart.items.find(
-        item => item.product.toString() === visitorItem.product.toString()
-      );
-      if (existingItem) {
-        existingItem.quantity += visitorItem.quantity;
-      } else {
-        userCart.items.push(visitorItem);
-      }
-    });
-    console.log('user cart', userCart);
-    
-    // Save merged cart
-    await userCart.save();
-
-    // Delete visitor cart
-    await Cart.deleteOne({ visitorId });
-
-    return ({ message: "Cart merged successfully", cart: userCart });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error merging cart" });
-  }
-};
 
 export const userSignIn = async (req, res, next) => {
   try {
@@ -185,20 +99,16 @@ export const userSignIn = async (req, res, next) => {
       expiresIn: JWT_EXP_IN,
     });
 
-    // Set user cookie
-    res.cookie("userId", user._id, {
-      httpOnly: true,
-      secure: false, // true in production with https
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-console.log('workinf fine',user._id);
-    // Merge visitor cart into user cart
+    // // Set user cookie
+    // res.cookie("userId", user._id, {
+    //   httpOnly: true,
+    //   secure: false, // true in production with https
+    //   sameSite: "strict",
+    //   maxAge: 7 * 24 * 60 * 60 * 1000,
+    // });
     await mergeCartAfterLogin(user._id, req.cookies.visitorId);
 
-    // Clear visitor cookie after merge
     res.clearCookie("visitorId");
-
     res.status(200).json({
       success: true,
       message: "User signed in successfully",
