@@ -223,7 +223,7 @@ function getIds(req) {
     let userId = '';
     let visitorId = '';
     console.log('check token',req.headers);
-    const token = req.headers["authorisation"]?.split(" ")[1];
+    const token = req.headers["authorization"]?.split(" ")[1];
     if(token) {
         try{
             const decoded= jwt.verify(token, JWT_SECRET);
