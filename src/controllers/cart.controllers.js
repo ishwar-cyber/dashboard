@@ -220,7 +220,6 @@ export const applyCoupons = async (req, res) => {
 }
 
 // Helper to get IDs
-Helper to get IDs
 export async function getIds(req) {
   try {
     let userId = null;
