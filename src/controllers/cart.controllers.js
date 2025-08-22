@@ -223,15 +223,12 @@ function getIds(req) {
     let userId = '';
     let visitorId = '';
     console.log('check token',req.headers);
-    const token = req.headers["authorization"]?.split(" ")[1];
-    if(token) {
-        try{
-            const decoded= jwt.verify(token, JWT_SECRET);
-            useraId= decoded.userId;
-        } catch { 
-            console.log('Invalid token, falling back to visitor id');
-        }
-    }
+    let token = '';
+    let authToken =  req.headers.authorization ? req.headers.authorization : req.headers.authtoken ? req.headers.authtoken : null;
+    if ((authToken.startsWith('Bearer'))) token = authToken.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    userId = await User.findById(decoded.userId);    
+    console.log('user',userId);
     if(!userId){
         visitorId = req.visitorId || req.cookies?.visitorId;
     }
