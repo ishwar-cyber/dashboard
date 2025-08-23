@@ -7,7 +7,8 @@ import { CLOUD_KEY, CLOUD_NAME, CLOUD_SECRET_KEY } from '../../config/env.js';
 cloudinary.config({ 
     cloud_name: CLOUD_NAME, 
     api_key: CLOUD_KEY, 
-    api_secret: CLOUD_SECRET_KEY
+    api_secret: CLOUD_SECRET_KEY,
+    secure: true
 });
 
 const uploadFile = async (file) => {   
