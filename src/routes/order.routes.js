@@ -16,7 +16,7 @@ const orderRouter = Router();
  * @desc    Create new order
  * @access  Private
  */
-orderRouter.post('/', tokenVerify, createOrder);
+orderRouter.post('/create-order', tokenVerify, createOrder);
 
 /**
  * @route   GET /api/orders

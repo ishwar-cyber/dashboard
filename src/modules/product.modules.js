@@ -28,7 +28,6 @@ const ImageSchema = new Schema (
     {
         url: {
             type: String,
-            required: true
         },
         public_id: String
     }
@@ -52,7 +51,12 @@ const VariantSchema = new Schema(
             min:0,
             default: 0
         },
-        image:[ImageSchema]   
+        image:{
+            url: {
+                type: String,
+            },
+            public_id: String
+        }  
     },{
         _id: true
     });

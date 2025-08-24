@@ -2,25 +2,26 @@ import Order from '../modules/order.modules.js';
 import Cart from '../modules/cart.modules.js';
 import Product from '../modules/product.modules.js';
 import { validateObjectId } from '../utilities/validation.js';
+import { sendOrderEmail } from '../utilities/email.js';
+import Coupon from '../modules/coupon.modules.js';
+import { getIds } from '../utilities/checkUserAndVisitor.js';
+import { generateOrderNumber } from '../utilities/orderNumber.js';
 
 /**
  * @desc    Create new order
  * @route   POST /api/orders
  * @access  Private
  */
-export const createOrder = async (req, res) => {
+export const createOrder1 = async (req, res) => {
     try {   
         const {
-            orderItems,
+            items,
             shippingAddress,
             billingAddress,
             paymentMethod,
             paymentId,
             paymentGateway,
-            notes,
-            source = 'web',
-            ipAddress,
-            userAgent
+            notes
         } = req.body;
 
         const userId = req.body.user;
@@ -163,6 +164,183 @@ export const createOrder = async (req, res) => {
         });
     }
 };
+
+
+// export const createOrder = async (req, res) => {
+//   try {
+//     const validation =  (await getIds(req));
+//     const user = validation.userId;
+//     const userId = user;
+//     console.log("user id in order",userId);
+//     //
+//     const orderNumber = await generateOrderNumber();
+//     console.log("Generated order number:", orderNumber);
+
+//     if (!user) {
+//       return res.status(400).json({ success: false, message: "User ID is required" });
+//     }
+
+//     if (!req.body.items || req.body.items.length === 0) {
+//       return res.status(400).json({ success: false, message: "Order items are required" });
+//     }
+
+//     if (!req.body.shippingAddress || !req.body.shippingAddress) {
+//       return res.status(400).json({ success: false, message: "Shipping address is required" });
+//     }
+
+//     if (!req.body.paymentMethod) {
+//       return res.status(400).json({ success: false, message: "Payment method is required" });
+//     }
+
+//     // Destructure order details
+//     const { items, shippingAddress, paymentMethod, totalAmount, couponCode } = req.body;
+
+//     // Check stock
+//     for (let item of items) {
+//       const product = await Product.findById(item.product);
+//       if (!product) return res.status(404).json({ message: `Product ${item.name} not found` });
+//       if (product.stock < item.quantity)
+//         return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
+//     }
+
+//     // Deduct stock
+//     for (let item of items) {
+//       if(item.product.stock === 'in'){
+       
+//       } else {
+//         await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
+//       }
+//     }
+
+//     let discount = 0;
+//     if (couponCode) {
+//       const coupon = await Coupon.findOne({ code: couponCode });
+//       if (coupon) {
+//         discount = coupon.type === "percentage" ? (totalAmount * coupon.value) / 100 : coupon.value;
+//         coupon.usedCount += 1;
+//         await coupon.save();
+//       }
+//     }
+
+//     const finalAmount = totalAmount - discount;
+
+//     const order = new Order({ orderNumber, user: userId, items, shippingAddress, paymentMethod, totalAmount: finalAmount, discountApplied: discount });
+//     console.log("New order created:", order);
+
+//     await order.save();
+//     // ✅ Clear the user's cart after successful order
+//     let emptyCart = await Cart.findOneAndUpdate(
+//       { user: userId },
+//       { $set: { items: [] } },  // empty items array
+//       { new: true }
+//     );
+
+//     console.log("Cart after clearing:", emptyCart);
+
+//     // Optionally send order confirmation email
+//     // await sendOrderEmail(shippingAddress.email, order);
+
+//     res.status(201).json({ success: true, order });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ success: false, message: "Order creation failed", error: err.message });
+//   }
+// };
+
+
+
+
+export const createOrder = async (req, res) => {
+  try {
+    const { userId, visitorId } = await getIds(req);
+    const orderNumber = await generateOrderNumber();
+
+    if (!userId && !visitorId) {
+      return res.status(400).json({ success: false, message: "User or Visitor ID is required" });
+    }
+
+    if (!req.body.items || req.body.items.length === 0) {
+      return res.status(400).json({ success: false, message: "Order items are required" });
+    }
+
+    if (!req.body.shippingAddress) {
+      return res.status(400).json({ success: false, message: "Shipping address is required" });
+    }
+
+    if (!req.body.paymentMethod) {
+      return res.status(400).json({ success: false, message: "Payment method is required" });
+    }
+
+    const { items, shippingAddress, paymentMethod, totalAmount, couponCode } = req.body;
+
+    // 🔎 Stock check
+    for (let item of items) {
+      const product = await Product.findById(item.product);
+      if (!product) return res.status(404).json({ message: `Product ${item.name} not found` });
+
+      // For variant check
+      if (item.variantId) {
+        const variant = product.variants.id(item.variantId);
+        if (!variant) return res.status(404).json({ message: `Variant not found for ${item.name}` });
+        if (variant.stock < item.quantity) {
+          return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
+        }
+      } else {
+        if (product.stock < item.quantity) {
+          return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
+        }
+      }
+    }
+
+    // 🔻 Deduct stock
+    for (let item of items) {
+      if (item.variantId) {
+        await Product.updateOne(
+          { _id: item.product, "variants._id": item.variantId },
+          { $inc: { "variants.$.stock": -item.quantity } }
+        );
+      } else if (item.product.stock === 'in') {
+        // await Product.findByIdAndUpdate(item.product, { $set: { stock: 'out' } });
+      } else {
+        await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
+      }
+    }
+
+    // 🎟 Apply coupon
+    let discount = 0;
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode });
+      if (coupon) {
+        discount = coupon.type === "percentage" ? (totalAmount * coupon.value) / 100 : coupon.value;
+        coupon.usedCount += 1;
+        await coupon.save();
+      }
+    }
+
+    const finalAmount = totalAmount - discount;
+
+    const order = new Order({
+      orderNumber,
+      user: userId || null,
+      visitorId: visitorId || null,
+      items,
+      shippingAddress,
+      paymentMethod,
+      totalAmount: finalAmount,
+      discountApplied: discount,
+    });
+
+    await order.save();
+
+    // ✅ Clear cart after order
+    await Cart.findOneAndDelete({ userId });
+    res.status(201).json({ success: true, order });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Order creation failed", error: err.message });
+  }
+};
+
 
 /**
  * @desc    Get all orders with pagination and filters

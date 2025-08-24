@@ -1,10 +1,10 @@
-import jwt from "jsonwebtoken";
+
 import Product from '../modules/product.modules.js';
 import Cart from '../modules/cart.modules.js';
 import User from '../modules/user.modules.js';
+import { getIds } from '../utilities/checkUserAndVisitor.js';
 import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon } from '../services/cart.service.js' 
 import { calculatedCart } from '../services/cart.calculater.service.js';
-import { JWT_SECRET } from "../../config/env.js";
 
 export const addToCart = async (req, res) => {
     try {
@@ -75,7 +75,7 @@ export const getCart = async (req, res) => {
     }
 
     const cart = await Cart.findOne(query)
-      .populate("items.product", "stock images");
+      .populate("items.product", "stock images slug");
 
     res.status(200).json({
       message: "Get all Cart",
@@ -246,44 +246,4 @@ export const applyCoupons = async (req, res) => {
         console.error(`Error applying coupon: ${error.message}`);
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
-}
-
-// Helper to get IDs
-export async function getIds(req) {
-  try {
-    let userId = '';
-    let visitorId = '';
-    // ✅ Extract token
-    const authHeader =
-      req.headers.authorization ||
-      req.headers.authtoken ||
-      null;
-
-    let token = null;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.split(" ")[1];
-    }
-    // ✅ Decode token if present
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-
-        // Only pick ID, don’t fetch full user unless needed
-       userId = decoded.userId
-    
-      } catch (err) {
-        console.warn("Invalid token:", err.message);
-      }
-    }
-
-    // ✅ If no user, fallback to visitor
-    if (!userId) {
-      visitorId = req.visitorId || req.cookies?.visitorId || null;
-    }
-
-    return { userId, visitorId };
-  } catch (err) {
-    console.error("getIds error:", err.message);
-    return { userId: null, visitorId: req.visitorId || req.cookies?.visitorId || null };
-  }
 }
