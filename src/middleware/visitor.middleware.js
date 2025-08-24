@@ -12,9 +12,7 @@ export const generateVisitorId = (req, res, next) => {
       sameSite: "none",
       maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
     });
-  } else {
-    console.log("Existing visitorId:", visitorId);
-  }
+  } 
   req.visitorId = visitorId;
   next();
 };

@@ -7,11 +7,6 @@ import Coupon from '../modules/coupon.modules.js';
 import { getIds } from '../utilities/checkUserAndVisitor.js';
 import { generateOrderNumber } from '../utilities/orderNumber.js';
 
-/**
- * @desc    Create new order
- * @route   POST /api/orders
- * @access  Private
- */
 export const createOrder1 = async (req, res) => {
     try {   
         const {
@@ -165,91 +160,6 @@ export const createOrder1 = async (req, res) => {
     }
 };
 
-
-// export const createOrder = async (req, res) => {
-//   try {
-//     const validation =  (await getIds(req));
-//     const user = validation.userId;
-//     const userId = user;
-//     console.log("user id in order",userId);
-//     //
-//     const orderNumber = await generateOrderNumber();
-//     console.log("Generated order number:", orderNumber);
-
-//     if (!user) {
-//       return res.status(400).json({ success: false, message: "User ID is required" });
-//     }
-
-//     if (!req.body.items || req.body.items.length === 0) {
-//       return res.status(400).json({ success: false, message: "Order items are required" });
-//     }
-
-//     if (!req.body.shippingAddress || !req.body.shippingAddress) {
-//       return res.status(400).json({ success: false, message: "Shipping address is required" });
-//     }
-
-//     if (!req.body.paymentMethod) {
-//       return res.status(400).json({ success: false, message: "Payment method is required" });
-//     }
-
-//     // Destructure order details
-//     const { items, shippingAddress, paymentMethod, totalAmount, couponCode } = req.body;
-
-//     // Check stock
-//     for (let item of items) {
-//       const product = await Product.findById(item.product);
-//       if (!product) return res.status(404).json({ message: `Product ${item.name} not found` });
-//       if (product.stock < item.quantity)
-//         return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
-//     }
-
-//     // Deduct stock
-//     for (let item of items) {
-//       if(item.product.stock === 'in'){
-       
-//       } else {
-//         await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
-//       }
-//     }
-
-//     let discount = 0;
-//     if (couponCode) {
-//       const coupon = await Coupon.findOne({ code: couponCode });
-//       if (coupon) {
-//         discount = coupon.type === "percentage" ? (totalAmount * coupon.value) / 100 : coupon.value;
-//         coupon.usedCount += 1;
-//         await coupon.save();
-//       }
-//     }
-
-//     const finalAmount = totalAmount - discount;
-
-//     const order = new Order({ orderNumber, user: userId, items, shippingAddress, paymentMethod, totalAmount: finalAmount, discountApplied: discount });
-//     console.log("New order created:", order);
-
-//     await order.save();
-//     // ✅ Clear the user's cart after successful order
-//     let emptyCart = await Cart.findOneAndUpdate(
-//       { user: userId },
-//       { $set: { items: [] } },  // empty items array
-//       { new: true }
-//     );
-
-//     console.log("Cart after clearing:", emptyCart);
-
-//     // Optionally send order confirmation email
-//     // await sendOrderEmail(shippingAddress.email, order);
-
-//     res.status(201).json({ success: true, order });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ success: false, message: "Order creation failed", error: err.message });
-//   }
-// };
-
-
-
-
 export const createOrder = async (req, res) => {
   try {
     const { userId, visitorId } = await getIds(req);
@@ -341,12 +251,6 @@ export const createOrder = async (req, res) => {
   }
 };
 
-
-/**
- * @desc    Get all orders with pagination and filters
- * @route   GET /api/orders
- * @access  Private/Admin
- */
 export const getAllOrders = async (req, res) => {
     try {
         // Pagination
@@ -468,11 +372,6 @@ export const getAllOrders = async (req, res) => {
     }
 };
 
-/**
- * @desc    Get order by ID
- * @route   GET /api/orders/:orderId
- * @access  Private
- */
 export const getOrderById = async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -522,11 +421,6 @@ export const getOrderById = async (req, res) => {
     }
 };
 
-/**
- * @desc    Update order status
- * @route   PUT /api/orders/:orderId/status
- * @access  Private/Admin
- */
 export const updateOrderStatus = async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -579,11 +473,6 @@ export const updateOrderStatus = async (req, res) => {
     }
 };
 
-/**
- * @desc    Cancel order
- * @route   PUT /api/orders/:orderId/cancel
- * @access  Private
- */
 export const cancelOrder = async (req, res) => {
     try {
         const { orderId } = req.params;
