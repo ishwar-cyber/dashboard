@@ -89,12 +89,12 @@ const ProductSchema = new Schema(
             max: [1000000, 'Price seems too high']
         },
         variants: [VariantSchema],
-        category: [{
+        category: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Category', // Changed to singular and capitalized (Mongoose convention)
             required: [true, 'At least one category is required']
-        }],
-        pincode :[{
+        },
+        pincode: [{
             type: String,
         }],
         stock: {

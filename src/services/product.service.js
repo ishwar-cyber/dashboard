@@ -107,7 +107,7 @@ export const create = async (productData) => {
             if (!category) {
                 throw new Error("Category not found");
             }
-            productData.category = [category._id];
+            productData.category = category._id;
         }
 
         // 4. Lookup and attach brand ObjectId

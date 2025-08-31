@@ -16,7 +16,7 @@ import couponRouter from "./src/routes/coupon.routers.js";
 import subCategoryRouter from "./src/routes/sub_category.routes.js";
 import pincodeRouter from "./src/routes/service_pincode.routers.js";
 import paymentRoute from "./src/routes/payment.routes.js";
-
+import sitemapRouter from "./src/routes/sitemap.routes.js";
 
 const app = express();
 
@@ -50,6 +50,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
+app.use('/', sitemapRouter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/products', productRouter);
