@@ -14,10 +14,22 @@ cloudinary.config({
 const uploadFile = async (file) => {   
     try {  
         if (!file) return null;
-        const response = await cloudinary.uploader.upload(file);
+        const response = await cloudinary.uploader.upload(file,{
+            folder: "products",
+            transformation: [{ quality: "auto", fetch_format: "auto" }],
+        });
+         // Generate transformation URLs
+        const thumbnail = cloudinary.url(response.public_id, {
+        width: 200,
+        height: 200,
+        crop: "fill",
+        quality: "auto",
+        fetch_format: "auto",
+        });
         return {
             url: response.url,
-            public_id: response.public_id
+            public_id: response.public_id,
+            thumbnail: thumbnail
         }; 
     } catch (error) {
         // Check if the file exists before trying to delete it

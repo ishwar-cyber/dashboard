@@ -116,3 +116,33 @@ export const deleteById = async (req, res) => {
         });
     }
 }
+
+export const getCategoryAndSubCategoryForHeader = async (req, res) => {
+    try {
+        const categories = await getAllCategories();
+        const subCategories = await getAllSubCategories();
+        subCategories.forEach(sub => {
+            const category = categories.find(cat => cat._id.equals(sub.category));
+            if (category) {
+                category.subCategories = category.subCategories || [];
+                category.subCategories.push(sub);
+            }
+        });
+        res.status(200).json({
+            success: true,
+            data: {
+               name: categories[0]?.name,
+               slug: categories[0]?.slug,
+               subCategories:{
+                name: categories[0]?.subCategories[0]?.name,
+                slug: categories[0]?.subCategories[0]?.slug
+               }
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};

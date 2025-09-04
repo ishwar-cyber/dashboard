@@ -9,8 +9,7 @@ import {
   deleteProduct, 
   uploadImages ,
   findRelatedProducts,
-  filterProducts,
-  getHeaderCategorySubCategory
+  filterProducts
 } from "../controllers/product.controllers.js";
 import { tokenVerify, role } from "../middleware/auth.middlerwares.js";
 import { upload } from "../middleware/multer.middlerwares.js";
@@ -23,8 +22,7 @@ productRouter.get('/search', searchProduct);
 productRouter.get('/:id/related', findRelatedProducts);
 productRouter.get('/category/:id', getProductByCategoryId);
 productRouter.get('/filter', filterProducts)
-productRouter.get('/:id', getProductById);
-productRouter.get('/header', getHeaderCategorySubCategory)
+productRouter.get('/:slug', getProductById);
 
 // Admin Routes
 productRouter.post('/', 

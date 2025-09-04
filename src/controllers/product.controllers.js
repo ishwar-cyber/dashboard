@@ -173,7 +173,7 @@ export const searchProduct = async (req, res) => {
 
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id)
+    const product = await Product.findOne({ slug: req.params.slug })
       .populate("brand", "name slug")       // only select required fields
       .populate("category", "name slug");  // populate category too
 
@@ -325,33 +325,6 @@ export const updateProductById = async (req, res) => {
         });
     }
 };
-
-export const getHeaderCategorySubCategory = async (req, res) => {
-  try {
-    const categories = await Category.find();
-    console.log('category', categories);
-  
-    const results = await Promise.all(
-      categories.map(async (cat) => {
-        const subcategories = await SubCategory.find({ category: cat.id });
-        return {
-          _id: cat._id,
-          name: cat.name,
-          slug: cat.slug,
-          subcategories: subcategories.map((sub) => ({
-            _id: sub._id,
-            name: sub.name,
-            slug: sub.slug
-          }))
-        };
-      })
-    );
-
-    res.json({ success: true, data: results });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-}
 
 export const uploadImages = async(req, res)=>{
     const file = req.files['image'];
