@@ -1,6 +1,8 @@
 
 import { createCategory, getCategoryByIdOrSlug, updateCategoryById,deleteCategory,getAllCategories } from "../services/category.service.js";
 import { uploadFile, deleteFile } from "../utilities/cloudnary.js";
+import Category from "../modules/category.modules.js";
+import SubCategory from "../modules/sub_category.modules.js";
 export const create = async (req, res) => {
     try {
         const categoryData = {...req.body};
@@ -118,31 +120,27 @@ export const deleteById = async (req, res) => {
 }
 
 export const getCategoryAndSubCategoryForHeader = async (req, res) => {
+
     try {
-        const categories = await getAllCategories();
-        const subCategories = await getAllSubCategories();
-        subCategories.forEach(sub => {
-            const category = categories.find(cat => cat._id.equals(sub.category));
-            if (category) {
-                category.subCategories = category.subCategories || [];
-                category.subCategories.push(sub);
-            }
-        });
-        res.status(200).json({
-            success: true,
-            data: {
-               name: categories[0]?.name,
-               slug: categories[0]?.slug,
-               subCategories:{
-                name: categories[0]?.subCategories[0]?.name,
-                slug: categories[0]?.subCategories[0]?.slug
-               }
-            }
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
+    const categories = await Category.find();
+
+    // For each category, fetch its subcategories
+    const results = await Promise.all(categories.map(async (cat) => {
+      const subs = await SubCategory.find({ category: cat._id });
+      return {
+        _id: cat._id,
+        name: cat.name,
+        slug: cat.slug,
+        subcategories: subs.map(sub => ({
+          _id: sub._id,
+          name: sub.name,
+          slug: sub.slug
+        }))
+      };
+    }));
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
 };

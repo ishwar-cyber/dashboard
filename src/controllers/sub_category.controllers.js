@@ -1,6 +1,5 @@
 import { uploadFile,deleteFile } from '../utilities/cloudnary.js';
 import { createSubCategory, updateSubCategoryById,getSubCategoryByIdOrSlug,getSubCategoryByIdService, deleteSubCategory,getAllSubCategories } from '../services/subCategory.service.js';
-
 export const create = async (req, res) => {
     try {
         const subCategoryData = {...req.body};
