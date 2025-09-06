@@ -41,7 +41,7 @@ export const getCartByVisitorId = async (visitorId) => {
 
 export const addItemToCart = async (userId, item, visitorId) => {
   try {
-    // Get the cart
+    // ✅ Get cart (user or visitor)
     const cart = userId
       ? await getOrCreateCart(userId)
       : await getCartByVisitorId(visitorId);
@@ -49,46 +49,59 @@ export const addItemToCart = async (userId, item, visitorId) => {
     if (!cart) {
       throw new Error("Cart not found");
     }
+    // ✅ Fetch product (with variants)
     const product = await Product.findById(item.product);
-    
     if (!product) {
       throw new Error("Product not found");
     }
 
-    let existingItem = cart.items.find(
-        cartItem => cartItem.product.id.toString() === item.product.toString()
-    );   
+    // ✅ Determine stock
+    let stock = product.stock;
+    let variant = null;
+
+    if (item.variantId) {
+      variant = product.variants.id(item.variantId);
+      if (!variant) {
+        throw new Error("Variant not found");
+      }
+      stock = variant.stock;
+    }
+   
+    // ✅ Find if same item already exists in cart
+    let existingItem = cart.items.find((cartItem) => {
+      return (
+        cartItem.product._id.toString() === item.product.toString() &&
+        (cartItem.variantId ? cartItem.variantId.toString() : null) ===
+          (item.variantId ? item.variantId.toString() : null)
+      );
+    });
+    if (existingItem) {
       // Update quantity
-      let storeQuantity = '';
-        if(existingItem){
-            for(let cartItem of cart.items){
-                if(cartItem.product.id === item.product) {
-                    storeQuantity = cartItem.quantity + item.quantity;
-                    if (storeQuantity > product.stock) {
-                        return `Only ${product.stock} items available in stock`;
-                        //  return res.status(400).json({ success: false, message: 'Not enough stock available' });
-                    }
-                    cartItem.quantity = storeQuantity;
-                }
-            }
-        } else {
-            if (item.quantity > product.stock) throw new Error(`Only ${product.stock} items available in stock`);
-            cart.items.push(item);
+      const newQty = existingItem.quantity + item.quantity;
+      if (newQty > stock) {
+        throw new Error(`Only ${stock} items available in stock`);
+      }
+      existingItem.quantity = newQty;
+    } else {
+      // Insert new cart item
+      if (item.quantity > stock) {
+        throw new Error(`Only ${stock} items available in stock`);
+      }
+      cart.items.push(item);
+    }
 
-        }
-
-    // Update modified date
+    // ✅ Update modified date
     cart.modifiedOn = new Date();
 
-    // Save and return populated cart
+    // ✅ Save & return populated cart
     await cart.save();
     return await Cart.findById(cart._id).populate({
-      path: 'items.product',
-      select: 'name price stock'
+      path: "items.product",
+      select: "name price stock variants",
     });
   } catch (error) {
-    console.error(error);
-    throw error; // rethrow for API error handler
+    console.error("addItemToCart Error:", error);
+    throw error; // let API handler respond
   }
 };
 

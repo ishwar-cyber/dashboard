@@ -19,7 +19,7 @@ const productRouter = Router();
 // Public Routes
 productRouter.get('/', getAllProducts);
 productRouter.get('/search', searchProduct);
-productRouter.get('/:id/related', findRelatedProducts);
+productRouter.get('/:slug/related', findRelatedProducts);
 productRouter.get('/category/:id', getProductByCategoryId);
 productRouter.get('/filter', filterProducts)
 productRouter.get('/:slug', getProductById);

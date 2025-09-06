@@ -31,6 +31,9 @@ const CartItemSchema = new Schema({
         required: true,
         min: [1, 'Quantity must be at least 1'],
         max: [999, 'Quantity cannot exceed 999']
+    },
+    variantId: {
+        type: Schema.Types.ObjectId,
     }
 }, { 
     timestamps: true,

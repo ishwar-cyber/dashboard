@@ -57,10 +57,9 @@ export const getAllProducts = async (req, res) => {
 
 export const findRelatedProducts = async (req, res) => {
   try {
-    const { id } = req.params;
-
+    const { slug } = req.params;
     // 1. Get the base product
-    const product = await Product.findById(id);
+    const product = await Product.findOne({ slug });
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }

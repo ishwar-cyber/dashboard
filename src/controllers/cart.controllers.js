@@ -7,50 +7,88 @@ import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon } fr
 import { calculatedCart } from '../services/cart.calculater.service.js';
 
 export const addToCart = async (req, res) => {
-    try {
-      const {productId, quantity = 1} = req.body;
-      const validation =  (await getIds(req));
-      const userId = validation.userId;
-      const visitorId = validation.visitorId;
-        // ✅ Build query dynamically
-      let query = null;
-      if (userId) {
-        query = { userId };
-      } else if (visitorId) {
-        query = { visitorId };
-      }
+  try {
+    const { productId, quantity = 1, variantId } = req.body;
 
-      if(!productId){
-        return res.status(400).json({ success: false, message: 'Product id is Required' });
-      }
+    const validation = await getIds(req);
+    const userId = validation.userId;
+    const visitorId = validation.visitorId;
 
-      if(quantity <= 0) return res.status(400).json({ success: false, message: 'Quantity must be greater than zero' });
-
-      const product = await Product.findById(productId);
-        
-      if(!product){
-        return res.status(400).json({ success: false, message: 'Product not found' });
-      }
-      if(Number(product.stock) < quantity){
-          return res.status(400).json({ success: false, message: 'Not enough stock available' });
-      }
-      const cart = await addItemToCart(userId, {
-          product: product.id,
-          name: product.name,
-          image: product.productImages,
-          price: product.price,
-          discount: product.discount,
-          quantity
-      }, visitorId);
-      res.status(200).json({
-          success: true,
-          message: 'Item added to cart',
-          data: cart
-      })
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Internal server error' });
+    // Build query dynamically
+    let query = null;
+    if (userId) {
+      query = { userId };
+    } else if (visitorId) {
+      query = { visitorId };
     }
-}
+
+    if (!productId) {
+      return res.status(400).json({ success: false, message: "Product id is required" });
+    }
+
+    if (quantity <= 0) {
+      return res.status(400).json({ success: false, message: "Quantity must be greater than zero" });
+    }
+
+    // Find product
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    let name, image, price, discount, stock;
+
+    if (variantId) {
+      // ✅ Variant case
+      const variant = product.variants.id(variantId);
+      if (!variant) {
+        return res.status(404).json({ success: false, message: "Variant not found" });
+      }
+
+      stock = variant.stock;
+      if (stock < quantity) {
+        return res.status(400).json({ success: false, message: "Not enough stock for this variant" });
+      }
+
+      name = `${product.name} - ${variant.name}`;
+      image = variant.image || product.productImages?.[0];
+      price = variant.price;
+      discount = variant.discount || product.discount;
+    } else {
+      // ✅ Product case
+      stock = product.stock;
+      if (stock < quantity) {
+        return res.status(400).json({ success: false, message: "Not enough stock for this product" });
+      }
+
+      name = product.name;
+      image = product.productImages?.[0];
+      price = product.price;
+      discount = product.discount;
+    }
+
+    const response = {
+      product: product._id,
+      variantId: variantId || null,
+      name,
+      image,
+      price,
+      discount,
+      quantity,
+    };
+
+    // ✅ Add/Update cart
+    const cart = await addItemToCart(userId, response, visitorId);    
+    res.status(200).json({
+      success: true,
+      message: "Item added to cart",
+      data: cart,
+    });
+  } catch (error) {
+    console.error("Add to Cart Error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
 
 export const getCart = async (req, res) => {
   try {
@@ -99,7 +137,7 @@ export const clearCart = async (req, res) => {
   } else if (visitorId) {
     query = { visitorId };
   }
-  const cart = await Cart.find({ $or: [{ userId }, { visitorId }] });
+  const cart = await Cart.findOne(query);
   if (cart) {
     cart.items = [];
     await cart.save();
@@ -107,32 +145,42 @@ export const clearCart = async (req, res) => {
   res.json({ items: [] });
 };
 
-export const removeItemFromCart = async (req, res) => {    
-  const { id } = req.params;
-  const validation =  (await getIds(req));
-  const userId = validation.userId;
-  const visitorId = validation.visitorId;
-    // ✅ Build query dynamically
-  let query = null;
-  if (userId) {
-    query = { userId };
-  } else if (visitorId) {
-    query = { visitorId };
-  }
+export const removeItemFromCart = async (req, res) => {
+  try {
+    const { id } = req.params; // this should be cartItemId, not productId
 
-  let cart = await Cart.findOne({ $or: [{ userId }, { visitorId }] }).populate("items.product","images price");
-  if (cart) {
-    cart.items = cart.items.filter(
-      item => item._id.toString() !== id
-    );
+    const validation = await getIds(req);
+    const userId = validation.userId;
+    const visitorId = validation.visitorId;
+
+    // ✅ Pick correct query
+    const query = userId ? { userId } : { visitorId };
+
+    const cart = await Cart.findOne(query);
+    if (!cart) {
+      return res.status(404).json({ success: false, message: "Cart not found" });
+    }
+
+    // ✅ Remove item by subdocument _id
+    const item = cart.items.id(id);
+    if (!item) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Item not found in cart" });
+    }
+
+    item.deleteOne(); // or cart.items.pull(id);
     await cart.save();
+
+    res.status(200).json({ success: true, message: "Item removed from cart" });
+  } catch (error) {
+    console.error(`Error removing item from cart: ${error.message}`);
+    res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
-  res.status(200).json({
-    success: true,
-    message: 'Remove item form cart',
-    data: cart
-  })
 };
+
 
 
 export const updateCartQuantity = async (req, res) => {
