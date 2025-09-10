@@ -1,4 +1,4 @@
-import { CASHFREE_BASE_URL, CASHFREE_APP_ID, CASHFREE_SECRET_KEY} from "../../config/env.js";.3
+import { CASHFREE_BASE_URL, CASHFREE_APP_ID, CASHFREE_SECRET_KEY, CASHFREE_APP_ID,CASHFREE_SECRET_KEY} from "../../config/env.js";
 import axios from "axios"; // <-- missing import
 export const createOrder = async (req, res) => {
  try {
@@ -17,11 +17,14 @@ export const createOrder = async (req, res) => {
           customer_email: customerEmail,
           customer_phone: customerPhone,
         },
+        order_meta: {
+          return_url: `http://localhost:4400/payment-status?order_id={orderId}`,
+        },
       },
       {
         headers: {
-          "x-client-id": process.env.CASHFREE_APP_ID,
-          "x-client-secret": process.env.CASHFREE_SECRET_KEY,
+          "x-client-id": CASHFREE_APP_ID,
+          "x-client-secret": CASHFREE_SECRET_KEY,
           "x-api-version": "2022-09-01",
           "Content-Type": "application/json",
         },
