@@ -17,11 +17,14 @@ export const createOrder = async (req, res) => {
           customer_email: customerEmail,
           customer_phone: customerPhone,
         },
+        order_meta: {
+          return_url: `https://application-shoppyness.vercel.app/payment-status?order_id={orderId}`,
+        },
       },
       {
         headers: {
-          "x-client-id": process.env.CASHFREE_APP_ID,
-          "x-client-secret": process.env.CASHFREE_SECRET_KEY,
+          "x-client-id": CASHFREE_APP_ID,
+          "x-client-secret": CASHFREE_SECRET_KEY,
           "x-api-version": "2022-09-01",
           "Content-Type": "application/json",
         },
@@ -37,3 +40,20 @@ export const createOrder = async (req, res) => {
     return res.status(500).json({ success: false, error: error.message });
   }
 }
+
+export const cashfreeWebhook = async (req, res) => {
+  try {
+    const { order_id, order_status } = req.body;
+
+    const order = await Order.findOne({ orderId: order_id });
+    if (order) {
+      order.status = order_status.toLowerCase(); // PAID, FAILED
+      await order.save();
+    }
+
+    res.json({ status: "ok" });
+  } catch (err) {
+    console.error("Webhook Error:", err);
+    res.status(500).json({ error: "Webhook failed" });
+  }
+};
