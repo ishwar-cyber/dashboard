@@ -1,187 +1,44 @@
 import Order from '../modules/order.modules.js';
 import Cart from '../modules/cart.modules.js';
+import User from '../modules/user.modules.js';
 import Product from '../modules/product.modules.js';
 import { validateObjectId } from '../utilities/validation.js';
 import { sendOrderEmail } from '../utilities/email.js';
 import Coupon from '../modules/coupon.modules.js';
 import { getIds } from '../utilities/checkUserAndVisitor.js';
 import { generateOrderNumber } from '../utilities/orderNumber.js';
-
-export const createOrder1 = async (req, res) => {
-    try {   
-        const {
-            items,
-            shippingAddress,
-            billingAddress,
-            paymentMethod,
-            paymentId,
-            paymentGateway,
-            notes
-        } = req.body;
-
-        const userId = req.body.user;
-
-        // Validate required fields
-        if (!orderItems.length < 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Valid cart ID is required'
-            });
-        }
-
-        if (!shippingAddress) {
-            return res.status(400).json({
-                success: false,
-                message: 'Shipping address is required'
-            });
-        }
-
-        if (!paymentMethod) {
-            return res.status(400).json({
-                success: false,
-                message: 'Payment method is required'
-            });
-        }
-        // Get cart and validate
-        const cart = await Cart.findById(orderItems);        
-        if (!cart) {
-            return res.status(404).json({
-                success: false,
-                message: 'Cart not found'
-            });
-        }
-
-        if (cart.items.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cart is empty'
-            });
-        }
-
-        // Validate stock and prepare order items
-        const preparedOrderItems = [];
-        let subtotal = 0;
-
-        for (const cartItem of cart.items) {
-            const product = await Product.findById(cartItem.product);
-            
-            if (!product) {
-                return res.status(404).json({
-                    success: false,
-                    message: `Product ${cartItem.product} not found`
-                });
-            }
-
-            if (product.stock < cartItem.quantity) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${cartItem.quantity}`
-                });
-            }
-            // Create order item
-            preparedOrderItems.push({
-                product: cartItem.product,
-                quantity: cartItem.quantity,
-                price: cartItem.price,
-                totalPrice: cartItem.totalPrice,
-                selectedOptions: cartItem.selectedOptions,
-                sku: product.sku || product._id.toString(),
-                productName: product.name
-            });
-
-            subtotal += cartItem.totalPrice;
-
-            // Update product stock
-            product.stock -= cartItem.quantity;
-            await product.save();
-        }
-
-        // Calculate totals
-        const tax = 0; // Calculate based on your tax logic
-        const shipping = 0; // Calculate based on your shipping logic
-        const discount = 0; // Apply any discounts
-        const totalPrice = subtotal + tax + shipping - discount;
-
-        // Create order
-        const order = new Order({
-            user: userId,
-            orderItems: preparedOrderItems,
-            subtotal,
-            tax,
-            shipping,
-            discount,
-            totalPrice,
-            shippingAddress,
-            billingAddress: billingAddress || shippingAddress,
-            paymentMethod,
-            paymentId,
-            paymentGateway,
-            notes,
-            source,
-            ipAddress,
-            userAgent
-        });
-
-        const savedOrder = await order.save();
-
-        // Clear the cart
-        cart.clearCart();
-        await cart.save();
-
-        // Populate order details
-        const populatedOrder = await Order.findById(savedOrder._id)
-            .populate('user', 'name email')
-            .populate({
-                path: 'orderItems.product',
-                select: 'name price thumbnail sku'
-            });
-        
-        res.status(201).json({
-            success: true,
-            message: 'Order created successfully',
-            data: {
-                orderId: populatedOrder._id,
-                orderNumber: populatedOrder.orderNumber,
-                totalAmount: populatedOrder.totalPrice,
-                orderStatus: populatedOrder.orderStatus,
-                paymentStatus: populatedOrder.paymentStatus,
-                estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-                orderDetails: populatedOrder
-            }
-        });
-
-    } catch (error) {
-        console.error('Create order error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to create order',
-            error: error.message
-        });
-    }
-};
-
+import axios from "axios";
 export const createOrder = async (req, res) => {
   try {
     const { userId, visitorId } = await getIds(req);
     const orderNumber = await generateOrderNumber();
-
+    const { items, shippingAddress, paymentMethod, totalAmount, couponCode } = req.body;
+    
+    console.log('order number generated:', orderNumber);
+    
     if (!userId && !visitorId) {
       return res.status(400).json({ success: false, message: "User or Visitor ID is required" });
     }
+    console.log('order details:', {
+      items,
+      shippingAddress,
+      paymentMethod,
+      totalAmount,
+      couponCode
+    });
 
-    if (!req.body.items || req.body.items.length === 0) {
+    if (!items || items.length === 0) {
       return res.status(400).json({ success: false, message: "Order items are required" });
     }
 
-    if (!req.body.shippingAddress) {
+    if (!shippingAddress) {
       return res.status(400).json({ success: false, message: "Shipping address is required" });
     }
 
-    if (!req.body.paymentMethod) {
+    if (!paymentMethod) {
       return res.status(400).json({ success: false, message: "Payment method is required" });
     }
 
-    const { items, shippingAddress, paymentMethod, totalAmount, couponCode } = req.body;
 
     // 🔎 Stock check
     for (let item of items) {
@@ -241,10 +98,47 @@ export const createOrder = async (req, res) => {
     });
 
     await order.save();
+    console.log("Order created successfully:", order);
 
     // ✅ Clear cart after order
     await Cart.findOneAndDelete({ userId });
-    res.status(201).json({ success: true, order });
+       // Call Cashfree API
+    const user = await User.findById(userId);
+    const response = await axios.post(
+      `https://sandbox.cashfree.com/pg/orders`,
+      {
+        orderNumber: orderNumber,
+        order_amount: 1,
+        order_currency: "INR",
+        customer_details: {
+          customer_id: "cust_" + Date.now(),
+          customer_name: "ishwar pandit",
+          customer_email: "customerEmail@gmail.com",
+          customer_phone: "9856325415",
+        },
+        order_meta: {
+          return_url: `https://application-shoppyness.vercel.app/payment-status?order_id={order_id}`,
+        },
+      },
+      {
+        headers: {
+          "x-client-id": "TEST43174731bcc18792591b7b55e3747134",
+          "x-client-secret": "TEST9515edf6d8b1c6c1768721988ec4dcae903f6ed",
+          "x-api-version": "2025-01-01",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const paymentLink = response.data.payments?.url;
+    const paymentSessionId = response.data.payment_session_id;
+    console.log("Cashfree payment link:", response);
+    
+    // Update DB with payment link
+    order.paymentLink = paymentLink;
+    await order.save();
+
+    res.json({ success: true, paymentLink, paymentSessionId, orderNumber });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Order creation failed", error: err.message });
@@ -261,7 +155,8 @@ export const getAllOrders = async (req, res) => {
         // Sorting
         const sortBy = req.query.sortBy || 'orderDate';
         const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
-
+        console.log('request params:', req);
+        
         // Filtering
         const filterQuery = {};
         
@@ -283,10 +178,11 @@ export const getAllOrders = async (req, res) => {
                 $lte: new Date(req.query.endDate)
             };
         }
-        
-        if (req.query.userId) {
-            filterQuery.user = req.query.userId;
-        }
+        console.log('Filter Query:', filterQuery);
+
+        // if (req.query.userId) {
+        //     filterQuery.user = req.query.userId;
+        // }
         
         if (req.query.minPrice || req.query.maxPrice) {
             filterQuery.totalPrice = {};
@@ -304,9 +200,12 @@ export const getAllOrders = async (req, res) => {
 
         // Build query with population
         const orders = await Order.find(filterQuery)
-            .populate('user', 'name email phone')
+            // .populate({
+            //     path: 'user',
+            //     select: 'name email phone'
+            // })
             .populate({
-                path: 'orderItems.product',
+                path: 'items.product',
                 select: 'name price thumbnail sku'
             })
             .sort({ [sortBy]: sortOrder })
@@ -551,7 +450,7 @@ export const cancelOrder = async (req, res) => {
  */
 export const getUserOrders = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.params.id;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
@@ -564,7 +463,7 @@ export const getUserOrders = async (req, res) => {
 
         const orders = await Order.find(filterQuery)
             .populate({
-                path: 'orderItems.product',
+                path: 'items.product',
                 select: 'name price thumbnail sku'
             })
             .sort({ orderDate: -1 })
@@ -608,3 +507,21 @@ export const getUserOrders = async (req, res) => {
         });
     }
 };
+
+export const orderStatus = async (req, res) => {
+    try {
+        const order = await Order.findOne({ orderNumber: req.params.orderId });
+        console.log('Order status fetched:', order);
+        
+        // const statuses = Order.schema.path('orderStatus').enumValues;
+        res.json({ success: true, data: order });
+    } catch (error) {
+        console.error('Get order statuses error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve order statuses',
+            error: error.message
+        });
+    }
+};
+

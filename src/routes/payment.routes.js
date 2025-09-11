@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { createOrder } from "../controllers/payment.controller.js";
+import { createOrderPayment, cashfreeWebhook } from "../controllers/payment.controller.js";
 
 const paymentRoute = Router();
 
-paymentRoute.post('/create-order',createOrder);
-
+paymentRoute.post('/create-order',createOrderPayment);
+paymentRoute.post('/webhook', cashfreeWebhook);
 export default paymentRoute;

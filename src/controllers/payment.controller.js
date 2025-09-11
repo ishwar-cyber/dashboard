@@ -1,6 +1,6 @@
 import { CASHFREE_BASE_URL, CASHFREE_APP_ID, CASHFREE_SECRET_KEY} from "../../config/env.js";
 import axios from "axios"; // <-- missing import
-export const createOrder = async (req, res) => {
+export const createOrderPayment = async (req, res) => {
  try {
     const { orderId, amount, customerName, customerPhone, customerEmail } = req.body;
 
