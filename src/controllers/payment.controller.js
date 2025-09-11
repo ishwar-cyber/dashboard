@@ -1,4 +1,4 @@
-import { CASHFREE_BASE_URL, CASHFREE_APP_ID, CASHFREE_SECRET_KEY} from "../../config/env.js";.3
+import { CASHFREE_BASE_URL, CASHFREE_APP_ID, CASHFREE_SECRET_KEY} from "../../config/env.js";
 import axios from "axios"; // <-- missing import
 export const createOrder = async (req, res) => {
  try {
