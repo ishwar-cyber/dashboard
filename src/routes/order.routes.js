@@ -53,5 +53,5 @@ orderRouter.put('/:orderId/status', tokenVerify, role(['admin']), updateOrderSta
  * @access  Private
  */
 orderRouter.put('/:orderId/cancel', tokenVerify, cancelOrder);
-orderRouter.get('/status', orderStatus);
+orderRouter.get('/status/:order_id', tokenVerify, orderStatus);
 export default orderRouter;

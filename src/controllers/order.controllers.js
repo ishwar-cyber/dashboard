@@ -14,18 +14,18 @@ export const createOrder = async (req, res) => {
     const orderNumber = await generateOrderNumber();
     const { items, shippingAddress, paymentMethod, totalAmount, couponCode } = req.body;
     
-    console.log('order number generated:', orderNumber);
+    // console.log('order number generated:', orderNumber);
     
     if (!userId && !visitorId) {
       return res.status(400).json({ success: false, message: "User or Visitor ID is required" });
     }
-    console.log('order details:', {
-      items,
-      shippingAddress,
-      paymentMethod,
-      totalAmount,
-      couponCode
-    });
+    // console.log('order details:', {
+    //   items,
+    //   shippingAddress,
+    //   paymentMethod,
+    //   totalAmount,
+    //   couponCode
+    // });
 
     if (!items || items.length === 0) {
       return res.status(400).json({ success: false, message: "Order items are required" });
@@ -39,40 +39,32 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: "Payment method is required" });
     }
 
-
+    // console.log('variables validated, proceeding to stock check', items);
+    
     // 🔎 Stock check
     for (let item of items) {
-      const product = await Product.findById(item.product);
+      const product = await Product.findById(item.product.id || item.product);
+    //   console.log('product found:', product);
+      
       if (!product) return res.status(404).json({ message: `Product ${item.name} not found` });
 
       // For variant check
       if (item.variantId) {
         const variant = product.variants.id(item.variantId);
         if (!variant) return res.status(404).json({ message: `Variant not found for ${item.name}` });
-        if (variant.stock < item.quantity) {
+        if (Number(variant.stock) < item.quantity) {
           return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
         }
       } else {
-        if (product.stock < item.quantity) {
+      
+        if (product.stock === 'in') {
+          return res.status(400).json({ message: `Product ${item.name} is out of stock` });
+        }
+        if (Number(product.stock) < item.quantity) {
           return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
         }
       }
     }
-
-    // 🔻 Deduct stock
-    for (let item of items) {
-      if (item.variantId) {
-        await Product.updateOne(
-          { _id: item.product, "variants._id": item.variantId },
-          { $inc: { "variants.$.stock": -item.quantity } }
-        );
-      } else if (item.product.stock === 'in') {
-        // await Product.findByIdAndUpdate(item.product, { $set: { stock: 'out' } });
-      } else {
-        await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
-      }
-    }
-
     // 🎟 Apply coupon
     let discount = 0;
     if (couponCode) {
@@ -137,6 +129,21 @@ export const createOrder = async (req, res) => {
     // Update DB with payment link
     order.paymentLink = paymentLink;
     await order.save();
+      // 🔻 Deduct stock
+    for (let item of items) {
+      if (item.variantId) {
+        await Product.updateOne(
+          { _id: item.product, "variants._id": item.variantId },
+          { $inc: { "variants.$.stock": -item.quantity } }
+        );
+      } else if (item.product.stock === 'in') {
+        // await Product.findByIdAndUpdate(item.product, { $set: { stock: 'out' } });
+      } else {
+        let findProduct = await Product.findByIdAndUpdate(item.product.id,{ $inc: { stock: -item.quantity }});
+        console.log('stock updated for product:', findProduct);
+        
+      }
+    }
 
     res.json({ success: true, paymentLink, paymentSessionId, orderNumber });
   } catch (err) {
@@ -474,7 +481,7 @@ export const getUserOrders = async (req, res) => {
         const totalPages = Math.ceil(totalOrders / limit);
 
         // Get user statistics
-        const stats = await Order.getStatistics(userId);
+        // const stats = await Order.getStatistics(userId);
 
         res.json({
             success: true,
@@ -488,13 +495,13 @@ export const getUserOrders = async (req, res) => {
                     hasNext: page < totalPages,
                     hasPrev: page > 1
                 },
-                statistics: stats[0] || {
-                    totalOrders: 0,
-                    totalSpent: 0,
-                    averageOrderValue: 0,
-                    pendingOrders: 0,
-                    deliveredOrders: 0
-                }
+                // statistics: stats[0] || {
+                //     totalOrders: 0,
+                //     totalSpent: 0,
+                //     averageOrderValue: 0,
+                //     pendingOrders: 0,
+                //     deliveredOrders: 0
+                // }
             }
         });
 
@@ -510,7 +517,7 @@ export const getUserOrders = async (req, res) => {
 
 export const orderStatus = async (req, res) => {
     try {
-        const order = await Order.findOne({ orderNumber: req.params.orderId });
+        const order = await Order.findOne({ orderNumber: req.params.order_id });
         console.log('Order status fetched:', order);
         
         // const statuses = Order.schema.path('orderStatus').enumValues;
