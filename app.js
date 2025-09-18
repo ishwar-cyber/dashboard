@@ -61,7 +61,7 @@ app.use('/api/v1/cart', cartRouter);
 app.use('/api/v1/coupons', couponRouter);
 app.use('/api/v1/subcategory', subCategoryRouter);
 app.use('/api/v1/pincode', pincodeRouter);
-app.use('/api/v1/payment/',paymentRoute);
+app.use('/api/v1/payment',paymentRoute);
 
 app.get('/', (req,res)=>{
     res.send("shooppyness api working fine")
