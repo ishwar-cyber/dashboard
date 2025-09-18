@@ -1,1 +1,3 @@
-import orderModules from "../models/order.models";
+import orderModules from "../models/order.model.js";
+import Product from "../models/product.model.js";
+

@@ -1,6 +1,6 @@
 import { SitemapStream, streamToPromise } from 'sitemap';
-import Product from '../models/product.models.js';
-import Category from '../models/category.models.js';
+import Product from '../models/product.model.js';
+import Category from '../models/category.model.js';
 import { BASE_URL } from '../../config/env.js';
 export async function generateSitemap() {
     try {

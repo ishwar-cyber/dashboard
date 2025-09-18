@@ -1,6 +1,6 @@
 import errorHandling from '../middleware/error.middleware.js';
-import Category from '../models/category.models.js';
-import Product from '../models/product.models.js';
+import Category from '../models/category.model.js';
+import Product from '../models/product.model.js';
 import slugify from 'slugify';
 
 export const getAllCategories = async (options = {}) => {

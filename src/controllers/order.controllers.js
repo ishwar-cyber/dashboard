@@ -1,10 +1,10 @@
-import Order from '../models/order.models.js';
-import Cart from '../models/cart.models.js';
-import User from '../models/user.models.js';
-import Product from '../models/product.models.js';
+import Order from '../models/order.model.js';
+import Cart from '../models/cart.model.js';
+import User from '../models/user.model.js';
+import Product from '../models/product.model.js';
 import { validateObjectId } from '../utilities/validation.js';
 import { sendOrderEmail } from '../utilities/email.js';
-import Coupon from '../models/coupon.models.js';
+import Coupon from '../models/coupon.model.js';
 import { getIds } from '../utilities/checkUserAndVisitor.js';
 import { generateOrderNumber } from '../utilities/orderNumber.js';
 import axios from "axios";

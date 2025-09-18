@@ -1,8 +1,8 @@
 
 import { createCategory, getCategoryByIdOrSlug, updateCategoryById,deleteCategory,getAllCategories } from "../services/category.service.js";
 import { uploadFile, deleteFile } from "../utilities/cloudnary.js";
-import Category from "../models/category.models.js";
-import SubCategory from "../models/sub_category.models.js";
+import Category from "../models/category.model.js";
+import SubCategory from "../models/sub_category.model.js";
 export const create = async (req, res) => {
     try {
         const categoryData = {...req.body};

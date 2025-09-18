@@ -1,8 +1,8 @@
-import Product from "../models/product.models.js";
-import Category from "../models/category.models.js"; 
-import Brand from "../models/brand.models.js";
-import SubCategory from "../models/sub_category.models.js";
-import Inventory from '../models/inventory.models.js';
+import Product from "../models/product.model.js";
+import Category from "../models/category.model.js"; 
+import Brand from "../models/brand.model.js";
+import SubCategory from "../models/sub_category.model.js";
+import Inventory from '../models/inventory.model.js';
 import slugify from "slugify";
 
 export const getProducts = async (options = {}) => {

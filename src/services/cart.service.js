@@ -1,6 +1,6 @@
 import errorHandler from '../middleware/error.middleware.js';
-import Cart from '../models/cart.models.js';
-import Product from '../models/product.models.js';
+import Cart from '../models/cart.model.js';
+import Product from '../models/product.model.js';
 export const getOrCreateCart = async (userId) =>{
     try {
         
