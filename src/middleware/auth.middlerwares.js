@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../../config/env.js";
-import User from "../modules/user.modules.js";
+import User from "../models/user.models.js";
 
 // Middleware for authentication
 const tokenVerify = async (req, res, next) => {

@@ -1,4 +1,4 @@
-import Pincode from "../modules/service_pincode.modules.js";
+import Pincode from "../models/service_pincode.models.js";
 
 export const addPincode = async(req, res) =>{
     try {

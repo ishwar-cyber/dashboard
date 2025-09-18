@@ -1,7 +1,7 @@
 
-import Product from '../modules/product.modules.js';
-import Cart from '../modules/cart.modules.js';
-import User from '../modules/user.modules.js';
+import Product from '../models/product.models.js';
+import Cart from '../models/cart.models.js';
+import User from '../models/user.models.js';
 import { getIds } from '../utilities/checkUserAndVisitor.js';
 import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon } from '../services/cart.service.js' 
 import { calculatedCart } from '../services/cart.calculater.service.js';

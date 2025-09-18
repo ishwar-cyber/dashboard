@@ -1,7 +1,7 @@
-import Product from "../modules/product.modules.js";
-import Category from "../modules/category.modules.js";
-import Brand from "../modules/brand.modules.js";
-import SubCategory from '../modules/sub_category.modules.js';
+import Product from "../models/product.models.js";
+import Category from "../models/category.models.js";
+import Brand from "../models/brand.models.js";
+import SubCategory from '../models/sub_category.models.js';
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 import { getProducts, create } from "../services/product.service.js";
 export const createProduct = async(req, res, next)=>{

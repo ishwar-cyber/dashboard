@@ -1,4 +1,4 @@
-import Product from "../modules/product.modules.js";
+import Product from "../models/product.models.js";
 
 export const calculatedCart = async(cart) => {
     if(!cart) return null;

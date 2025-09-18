@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Brand from "../modules/brand.modules.js";
+import Brand from "../models/brand.models.js";
 import slugify from "slugify";
 
 export const createBrand = async(brandData) => {

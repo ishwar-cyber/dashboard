@@ -1,8 +1,8 @@
-import User from "../modules/user.modules.js";
+import User from "../models/user.models.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import AppError from "../utilities/appError.js";
-import Cart from '../modules/cart.modules.js'
+import Cart from '../models/cart.models.js'
 import { JWT_EXP_IN, JWT_SECRET } from "../../config/env.js";
 
 export const signUp = async (req, res, next) => {

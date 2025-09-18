@@ -1,4 +1,4 @@
-import Coupon from '../modules/coupon.modules.js';  // Fix the path to match your project structure
+import Coupon from '../models/coupon.models.js';  // Fix the path to match your project structure
 
 export const createCoupon = async (req, res) => {
     try {

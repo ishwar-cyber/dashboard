@@ -1,4 +1,4 @@
-import Brand from "../modules/brand.modules.js";
+import Brand from "../models/brand.models.js";
 import { uploadFile, deleteFile } from "../utilities/cloudnary.js";
 import {createBrand, getAllBrands, getBrandById, deleteBrandById} from "../services/brand.service.js"
 export const create = async (req, res, next) => {

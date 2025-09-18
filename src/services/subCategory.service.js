@@ -1,5 +1,5 @@
-import SubCategory from '../modules/sub_category.modules.js';
-import Product from '../modules/product.modules.js';
+import SubCategory from '../models/sub_category.models.js';
+import Product from '../models/product.models.js';
 import slugify from 'slugify';
 
 export const getAllSubCategories = async (options = {}) => {

@@ -1,4 +1,4 @@
-import User from "../modules/user.modules.js";
+import User from "../modules/user.models.js";
 
 const checkRole = (roles) => async (req, res, next) => {
     let { email } = req.body;
