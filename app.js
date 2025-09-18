@@ -28,7 +28,7 @@ app.use(cookieParser());
 const allowedOrigins = [
   "https://application-shoppyness.vercel.app",
   "https://admin-mu-orcin.vercel.app",
-  "http://localhost:4400","http://localhost:4200"
+  "http://localhost:4400","http://localhost:4200","https://merchant.cashfree.com"
 ];
 
 const corsOptions = {
