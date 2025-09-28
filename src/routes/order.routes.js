@@ -45,7 +45,7 @@ orderRouter.get('/:orderId', tokenVerify, getOrderById);
  * @desc    Update order status (Admin only)
  * @access  Private/Admin
  */
-orderRouter.put('/:orderId/status', tokenVerify, role(['admin']), updateOrderStatus);
+orderRouter.put('/:id', tokenVerify, role('admin'), updateOrderStatus);
 
 /**
  * @route   PUT /api/orders/:orderId/cancel

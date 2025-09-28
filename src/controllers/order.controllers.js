@@ -162,7 +162,6 @@ export const getAllOrders = async (req, res) => {
         // Sorting
         const sortBy = req.query.sortBy || 'orderDate';
         const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
-        console.log('request params:', req);
         
         // Filtering
         const filterQuery = {};
@@ -185,7 +184,6 @@ export const getAllOrders = async (req, res) => {
                 $lte: new Date(req.query.endDate)
             };
         }
-        console.log('Filter Query:', filterQuery);
 
         // if (req.query.userId) {
         //     filterQuery.user = req.query.userId;
@@ -328,56 +326,57 @@ export const getOrderById = async (req, res) => {
 };
 
 export const updateOrderStatus = async (req, res) => {
-    try {
-        const { orderId } = req.params;
-        const { status, notes } = req.body;
+  try {
+    const { id } = req.params;
+    const { status } = req.query; // 👈 take from query param
 
-        if (!validateObjectId(orderId)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Valid order ID is required'
-            });
-        }
-
-        if (!status) {
-            return res.status(400).json({
-                success: false,
-                message: 'Status is required'
-            });
-        }
-
-        const order = await Order.findById(orderId);
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Order not found'
-            });
-        }
-
-        // Update status
-        order.updateStatus(status, notes);
-        await order.save();
-
-        res.json({
-            success: true,
-            message: 'Order status updated successfully',
-            data: {
-                orderId: order._id,
-                orderNumber: order.orderNumber,
-                status: order.orderStatus,
-                statusUpdatedAt: order.statusUpdatedAt
-            }
-        });
-
-    } catch (error) {
-        console.error('Update order status error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update order status',
-            error: error.message
-        });
+    if (!validateObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid order ID is required'
+      });
     }
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status is required'
+      });
+    }
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // ✅ Update status directly
+    order.orderStatus = status;
+    order.statusUpdatedAt = new Date();
+    await order.save();
+
+    res.json({
+      success: true,
+      message: 'Order status updated successfully',
+      data: {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        status: order.orderStatus,
+        statusUpdatedAt: order.statusUpdatedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Update order status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update order status',
+      error: error.message
+    });
+  }
 };
+
 
 export const cancelOrder = async (req, res) => {
     try {
