@@ -234,7 +234,7 @@ export const deleteProduct = async(req, res)=>{
     }
 }
 
-export const updateProductById = async (req, res) => {
+export const updateProductById1 = async (req, res) => {
     try {
         const productId = req.params.id;
         const updates = req.body; // Assuming the product data is sent in the request body
@@ -323,6 +323,77 @@ export const updateProductById = async (req, res) => {
             error: error.message
         });
     }
+};
+
+export const updateProductById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    console.log('Update product called for ID:', id, 'with body:', req.body);
+    
+    const updates = { ...req.body };
+    console.log('Initial updates:', updates);
+    
+    // ✅ Convert numeric fields only
+    if (updates.price !== undefined) updates.price = parseFloat(updates.price);
+    if (updates.weight !== undefined) updates.weight = parseFloat(updates.weight);
+    if (updates.length !== undefined) updates.length = parseFloat(updates.length);
+    if (updates.height !== undefined) updates.height = parseFloat(updates.height);
+    if (updates.width !== undefined) updates.width = parseFloat(updates.width);
+
+    // ✅ stock remains a string (e.g. "in", "out")
+    if (updates.stock !== undefined) {
+      updates.stock = String(updates.stock);
+    }
+
+    // ✅ Warranty (array structure)
+    if (updates.warranty) {
+      updates.warranty = [
+        {
+          period: updates.warranty.period,
+          type: updates.warranty.type,
+          details: updates.warranty.details,
+        },
+      ];
+    }
+
+    // ✅ Variants (map array properly)
+    if (updates.variants && Array.isArray(updates.variants)) {
+      updates.variants = updates.variants.map((variant) => ({
+        name: variant.variantName,
+        sku: variant.sku,
+        thumbnail: variant.thumbnail,
+      }));
+    }
+
+    // ✅ Pincode (convert [{id, name}] → array of ids or names)
+    if (updates.pincode && Array.isArray(updates.pincode)) {
+      updates.pincode = updates.pincode.map((p) => p.id || p.name || p);
+    }
+console.log('Updates to apply:', updates);
+
+    // ✅ Update in DB
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+    // console.log('Product updated:', updatedProduct);
+    
+    res.status(200).json({
+      success: true,
+      message: "Product updated successfully",
+      data: updatedProduct,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const uploadImages = async(req, res)=>{

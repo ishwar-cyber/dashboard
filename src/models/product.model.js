@@ -174,10 +174,6 @@ const ProductSchema = new Schema(
                     type: String,
                     // enum: ['Manufacturer', 'Seller', 'Extended', 'Other'],
                     // default: 'Manufacturer'
-                },
-                details: {
-                    type: String,
-                    maxLength: [500, 'Warranty details cannot exceed 500 characters']
                 }
             }
         ]

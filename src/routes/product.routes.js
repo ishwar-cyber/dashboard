@@ -34,8 +34,7 @@ productRouter.post('/',
 
 productRouter.put('/:id', 
   tokenVerify, 
-  role('admin'), 
-  upload.any(),
+  role('admin'),
   updateProductById
 );
 

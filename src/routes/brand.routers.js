@@ -10,6 +10,6 @@ brandRouter.get('/', getBrands);
 brandRouter.use(tokenVerify);
 
 brandRouter.post('/', role('admin'), upload.single('image'), create);
-brandRouter.delete('/:id',  role('admin'), deleteBrand);
+brandRouter.delete('/:id', role('admin'), deleteBrand);
 
 export default brandRouter;
