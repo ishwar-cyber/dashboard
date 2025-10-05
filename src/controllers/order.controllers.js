@@ -14,19 +14,9 @@ export const createOrder = async (req, res) => {
     const orderNumber = await generateOrderNumber();
     const { items, shippingAddress, paymentMethod, totalAmount, couponCode } = req.body;
     
-    // console.log('order number generated:', orderNumber);
-    
     if (!userId && !visitorId) {
       return res.status(400).json({ success: false, message: "User or Visitor ID is required" });
     }
-    // console.log('order details:', {
-    //   items,
-    //   shippingAddress,
-    //   paymentMethod,
-    //   totalAmount,
-    //   couponCode
-    // });
-
     if (!items || items.length === 0) {
       return res.status(400).json({ success: false, message: "Order items are required" });
     }
@@ -39,13 +29,10 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: "Payment method is required" });
     }
 
-    // console.log('variables validated, proceeding to stock check', items);
     
     // 🔎 Stock check
     for (let item of items) {
       const product = await Product.findById(item.product.id || item.product);
-    //   console.log('product found:', product);
-      
       if (!product) return res.status(404).json({ message: `Product ${item.name} not found` });
 
       // For variant check
@@ -90,8 +77,6 @@ export const createOrder = async (req, res) => {
     });
 
     await order.save();
-    console.log("Order created successfully:", order);
-
     // ✅ Clear cart after order
     await Cart.findOneAndDelete({ userId });
        // Call Cashfree API
@@ -124,8 +109,7 @@ export const createOrder = async (req, res) => {
 
     const paymentLink = response.data.payments?.url;
     const paymentSessionId = response.data.payment_session_id;
-    console.log("Cashfree payment link:", response);
-    
+
     // Update DB with payment link
     order.paymentLink = paymentLink;
     await order.save();
@@ -140,8 +124,6 @@ export const createOrder = async (req, res) => {
         // await Product.findByIdAndUpdate(item.product, { $set: { stock: 'out' } });
       } else {
         let findProduct = await Product.findByIdAndUpdate(item.product.id,{ $inc: { stock: -item.quantity }});
-        console.log('stock updated for product:', findProduct);
-        
       }
     }
 
@@ -205,10 +187,10 @@ export const getAllOrders = async (req, res) => {
 
         // Build query with population
         const orders = await Order.find(filterQuery)
-            // .populate({
-            //     path: 'user',
-            //     select: 'name email phone'
-            // })
+            .populate({
+                path: 'user',
+                select: 'username email phone'
+            })
             .populate({
                 path: 'items.product',
                 select: 'name price thumbnail sku'
@@ -516,9 +498,7 @@ export const getUserOrders = async (req, res) => {
 
 export const orderStatus = async (req, res) => {
     try {
-        const order = await Order.findOne({ orderNumber: req.params.order_id });
-        console.log('Order status fetched:', order);
-        
+        const order = await Order.findOne({ orderNumber: req.params.order_id });   
         // const statuses = Order.schema.path('orderStatus').enumValues;
         res.json({ success: true, data: order });
     } catch (error) {

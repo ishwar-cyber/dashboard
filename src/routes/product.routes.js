@@ -37,6 +37,12 @@ productRouter.put('/:id',
   role('admin'),
   updateProductById
 );
+productRouter.patch('/:id', 
+  tokenVerify, 
+  role('admin'),
+  upload.array('variantImages', 2),
+  updateProductById
+);
 
 productRouter.delete('/:id', tokenVerify, role('admin'), deleteProduct);
 

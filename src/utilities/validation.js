@@ -6,8 +6,6 @@ import mongoose from 'mongoose';
  * @returns {boolean} - True if valid ObjectId
  */
 export const validateObjectId = (id) => {
-    console.log('Validating ObjectId:', id);
-    
     return mongoose.Types.ObjectId.isValid(id);
 };
 

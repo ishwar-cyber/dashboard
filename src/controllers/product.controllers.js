@@ -328,24 +328,21 @@ export const updateProductById1 = async (req, res) => {
 export const updateProductById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    console.log('Update product called for ID:', id, 'with body:', req.body);
-    
-    const updates = { ...req.body };
-    console.log('Initial updates:', updates);
-    
-    // ✅ Convert numeric fields only
-    if (updates.price !== undefined) updates.price = parseFloat(updates.price);
-    if (updates.weight !== undefined) updates.weight = parseFloat(updates.weight);
-    if (updates.length !== undefined) updates.length = parseFloat(updates.length);
-    if (updates.height !== undefined) updates.height = parseFloat(updates.height);
-    if (updates.width !== undefined) updates.width = parseFloat(updates.width);
+    const updates = {...req.body };
 
-    // ✅ stock remains a string (e.g. "in", "out")
+    // ✅ Numeric fields
+    ['price', 'weight', 'length', 'height', 'width'].forEach((field) => {
+      if (updates[field] !== undefined) {
+        updates[field] = parseFloat(updates[field]);
+      }
+    });
+
+    // ✅ Stock (string)
     if (updates.stock !== undefined) {
       updates.stock = String(updates.stock);
     }
 
-    // ✅ Warranty (array structure)
+    // ✅ Warranty
     if (updates.warranty) {
       updates.warranty = [
         {
@@ -356,22 +353,23 @@ export const updateProductById = async (req, res, next) => {
       ];
     }
 
-    // ✅ Variants (map array properly)
+    // ✅ Variants (FIXED HERE)
     if (updates.variants && Array.isArray(updates.variants)) {
       updates.variants = updates.variants.map((variant) => ({
-        name: variant.variantName,
+        name: variant.name,
         sku: variant.sku,
-        thumbnail: variant.thumbnail,
+        price: parseFloat(variant.price) || 0,
+        stock: parseInt(variant.stock) || 0,
+        image: Array.isArray(variant.image) && variant.image.length > 0
+          ? variant.image[0] // ✅ FIXED: pick object, not array
+          : variant.image || null,
       }));
     }
-
-    // ✅ Pincode (convert [{id, name}] → array of ids or names)
+console.log('Processed variants:', updates.variants);
+    // ✅ Pincode
     if (updates.pincode && Array.isArray(updates.pincode)) {
       updates.pincode = updates.pincode.map((p) => p.id || p.name || p);
     }
-console.log('Updates to apply:', updates);
-
-    // ✅ Update in DB
     const updatedProduct = await Product.findByIdAndUpdate(
       id,
       { $set: updates },
@@ -379,13 +377,9 @@ console.log('Updates to apply:', updates);
     );
 
     if (!updatedProduct) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
+      return res.status(404).json({ success: false, message: "Product not found" });
     }
-    // console.log('Product updated:', updatedProduct);
-    
+
     res.status(200).json({
       success: true,
       message: "Product updated successfully",
@@ -395,6 +389,7 @@ console.log('Updates to apply:', updates);
     next(error);
   }
 };
+
 
 export const uploadImages = async(req, res)=>{
     const file = req.files['image'];

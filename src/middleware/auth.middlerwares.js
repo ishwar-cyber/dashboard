@@ -24,7 +24,6 @@ const tokenVerify = async (req, res, next) => {
 // Middleware for role-based authorization
 const role = (role) => {
     return (req, res, next) => {
-        console.log('Checking user role:', req.user?.isRole, 'against required role:', role);
         if (!req.user) {
             return res.status(401).json({ message: 'Unauthorized' });
         }        

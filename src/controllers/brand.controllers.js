@@ -100,12 +100,8 @@ export const updateBrand = async (req, res) => {
 
 export const deleteBrand = async (req, res) => {
     try {
-        const id = req.params.id;
-        // console.log('Deleting brand with ID:', id);
-        
+        const id = req.params.id;       
         let brand = await getBrandById(id);
-        console.log('Brand found:', brand);
-        
         if (brand.image && brand.image.public_id) {
             await deleteFile(brand.image.public_id);
         }

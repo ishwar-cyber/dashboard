@@ -51,12 +51,7 @@ const VariantSchema = new Schema(
             min:0,
             default: 0
         },
-        image:{
-            url: {
-                type: String,
-            },
-            public_id: String
-        }  
+        image: [ImageSchema]
     },{
         _id: true
     });
@@ -126,7 +121,10 @@ const ProductSchema = new Schema(
             min: 0,
             max: 5
         },
-        
+        serviceCharges:{
+            type: Number,
+            default: 0
+        },
         weight: {
             type: Number,
             required: [true, 'Product weight is required'],
