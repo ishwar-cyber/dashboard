@@ -20,7 +20,7 @@ export const createProduct = async(req, res, next)=>{
         next(error)
     }
 }
-export const getAllProducts = async (req, res) => {
+export const getAllProduct1 = async (req, res) => {
   try {
    const options = {
         page: req.query.page,
@@ -52,6 +52,50 @@ export const getAllProducts = async (req, res) => {
         success: false,
         message: error.message
     });
+  }
+};
+
+export const getAllProducts = async (req, res) => {
+  try {
+    const { category, subCategory, brand, minPrice, maxPrice, search } = req.query;
+
+    const filter = {};
+
+    // 🔹 Category filter
+    if (category) {
+      filter['category.slug'] = category.toLowerCase(); // or category.name if using name
+    }
+
+    // 🔹 Subcategory filter
+    if (subCategory) {
+      filter['subCategory.slug'] = subCategory.toLowerCase();
+    }
+
+    // 🔹 Brand filter
+    if (brand) {
+      filter['brand.slug'] = brand.toLowerCase();
+    }
+
+    // 🔹 Price filter
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = parseFloat(minPrice);
+      if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
+    }
+
+    // 🔹 Text search
+    if (search) {
+      filter.name = { $regex: search, $options: 'i' };
+    }
+
+    const products = await Product.find(filter)
+      .populate('category subCategory brand')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, count: products.length, data: products });
+  } catch (err) {
+    console.error('Error fetching products:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch products', error: err.message });
   }
 };
 
@@ -171,21 +215,46 @@ export const searchProduct = async (req, res) => {
 };
 
 export const getProductById = async (req, res) => {
-  try {
-    const product = await Product.findOne({ slug: req.params.slug })
-      .populate("brand", "name slug")       // only select required fields
-      .populate("category", "name slug");  // populate category too
+ try {
+    const { category, subCategory, brand, minPrice, maxPrice, search } = req.query;
 
-    if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
+    const filter = {};
+
+    // 🔹 Category filter
+    if (category) {
+      filter['category.slug'] = category.toLowerCase(); // or category.name if using name
     }
 
-    res.status(200).json({
-      success: true,
-      data: product
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    // 🔹 Subcategory filter
+    if (subCategory) {
+      filter['subCategory.slug'] = subCategory.toLowerCase();
+    }
+
+    // 🔹 Brand filter
+    if (brand) {
+      filter['brand.slug'] = brand.toLowerCase();
+    }
+
+    // 🔹 Price filter
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = parseFloat(minPrice);
+      if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
+    }
+
+    // 🔹 Text search
+    if (search) {
+      filter.name = { $regex: search, $options: 'i' };
+    }
+
+    const products = await Product.find(filter)
+      .populate('category subCategory brand')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, count: products.length, data: products });
+  } catch (err) {
+    console.error('Error fetching products:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch products', error: err.message });
   }
 };
 

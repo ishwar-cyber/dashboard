@@ -20,8 +20,8 @@ const productRouter = Router();
 productRouter.get('/', getAllProducts);
 productRouter.get('/search', searchProduct);
 productRouter.get('/:slug/related', findRelatedProducts);
-productRouter.get('/category/:id', getProductByCategoryId);
-productRouter.get('/filter', filterProducts)
+productRouter.get('/category/:slug', getProductByCategoryId);
+productRouter.get('/filter', filterProducts);
 productRouter.get('/:slug', getProductById);
 
 // Admin Routes
