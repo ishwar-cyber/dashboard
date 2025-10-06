@@ -8,7 +8,7 @@ couponRouter.post('/apply-coupon', applyCoupon)
 couponRouter.post('/', tokenVerify, role('admin'), createCoupon);
 couponRouter.get('/', tokenVerify, getCoupons);
 couponRouter.put('/:id', tokenVerify, role('admin'), createCoupon);
-couponRouter.delete('/:id', tokenVerify, role('admin'), deleteCoupon);
+couponRouter.delete('/delete/:id', tokenVerify, role('admin'), deleteCoupon);
 couponRouter.get('/search/:code', tokenVerify, getCoupons);
 couponRouter.get('/:code', tokenVerify, getCouponByCode);
 
