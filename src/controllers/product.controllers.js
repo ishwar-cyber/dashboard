@@ -87,9 +87,11 @@ export const getAllProducts = async (req, res) => {
     if (search) {
       filter.name = { $regex: search, $options: 'i' };
     }
-
-    const products = await Product.find(filter)
-      .populate('category subCategory brand')
+    filter.status = true;
+     const products = await Product.find(filter)
+      .populate('category', 'name slug')
+      .populate('subCategory', 'name slug')
+      .populate('brand', 'name slug')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, count: products.length, data: products });
@@ -216,42 +218,29 @@ export const searchProduct = async (req, res) => {
 
 export const getProductById = async (req, res) => {
  try {
-    const { category, subCategory, brand, minPrice, maxPrice, search } = req.query;
+    const { slug } = req.params;
+    console.log("Fetching product with slug:", slug);
 
-    const filter = {};
-
-    // 🔹 Category filter
-    if (category) {
-      filter['category.slug'] = category.toLowerCase(); // or category.name if using name
+    if(!slug) {
+      return res.status(400).json({ success: false, message: 'Product slug is required' });
     }
 
-    // 🔹 Subcategory filter
-    if (subCategory) {
-      filter['subCategory.slug'] = subCategory.toLowerCase();
+    const product = await Product.findOne({ slug: slug.toLowerCase() })
+      .populate('category', 'name slug')
+      .populate('subCategory', 'name slug')
+      .populate('brand', 'name slug');
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found',
+      });
     }
 
-    // 🔹 Brand filter
-    if (brand) {
-      filter['brand.slug'] = brand.toLowerCase();
-    }
-
-    // 🔹 Price filter
-    if (minPrice || maxPrice) {
-      filter.price = {};
-      if (minPrice) filter.price.$gte = parseFloat(minPrice);
-      if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
-    }
-
-    // 🔹 Text search
-    if (search) {
-      filter.name = { $regex: search, $options: 'i' };
-    }
-
-    const products = await Product.find(filter)
-      .populate('category subCategory brand')
-      .sort({ createdAt: -1 });
-
-    res.json({ success: true, count: products.length, data: products });
+    res.status(200).json({
+      success: true,
+      data: product,
+    });
   } catch (err) {
     console.error('Error fetching products:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch products', error: err.message });
