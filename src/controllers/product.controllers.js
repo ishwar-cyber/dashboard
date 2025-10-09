@@ -20,41 +20,6 @@ export const createProduct = async(req, res, next)=>{
         next(error)
     }
 }
-export const getAllProduct1 = async (req, res) => {
-  try {
-   const options = {
-        page: req.query.page,
-        limit: req.query.limit,
-        search: req.query.search,
-        query: req.query.query,
-        isActive: req.query.isActive,
-        sortBy: req.query.sortBy,
-        sortOrder: req.query.sortOrder,
-        category: req.query.category,
-        brand: req.query.brand,
-        subCategory: req.query.subCategory,
-        minPrice: req.query.minPrice,
-        maxPrice: req.query.maxPrice,
-        featured: req.query.featured
-    };
-
-    if(req.query.category) {
-        options.category = req.query.category.split(',');
-    }
-    const result = await getProducts(options);
-    res.status(200).json({
-        success: true,
-        data: result.products,
-        pagination: result.pagination
-    });
-  } catch (error) {
-    res.status(500).json({
-        success: false,
-        message: error.message
-    });
-  }
-};
-
 export const getAllProducts = async (req, res) => {
   try {
     const { category, subCategory, brand, minPrice, maxPrice, search } = req.query;
@@ -88,6 +53,7 @@ export const getAllProducts = async (req, res) => {
       filter.name = { $regex: search, $options: 'i' };
     }
     filter.status = true;
+    filter.stock = 'in';
      const products = await Product.find(filter)
       .populate('category', 'name slug')
       .populate('subCategory', 'name slug')

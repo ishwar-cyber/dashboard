@@ -43,8 +43,9 @@ export const createOrder = async (req, res) => {
           return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
         }
       } else {
-      
-        if (product.stock === 'in') {
+        console.log(product);
+        
+        if (product.stock === 'out') {
           return res.status(400).json({ message: `Product ${item.name} is out of stock` });
         }
         if (Number(product.stock) < item.quantity) {
