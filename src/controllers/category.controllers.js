@@ -144,3 +144,22 @@ export const getCategoryAndSubCategoryForHeader = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
+export const searchCategory = async (req, res) => {
+    console.log("Search query:", req );
+    
+    try {
+        const query = req.query.category || '';
+        if (!query.trim()) {
+            return res.status(400).json({ success: false, message: 'Search query is required' });
+        }
+
+        // Only search category name (case-insensitive)
+        const categories = await Category.find({
+            name: { $regex: query, $options: 'i' }
+        }).limit(20);
+        res.json({ success: true, data: categories });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Search failed', error: err.message });
+    }
+}

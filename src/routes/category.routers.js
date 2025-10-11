@@ -4,7 +4,8 @@ import {
   deleteById, 
   updateCategory, 
   getCategories, 
-  getCategoryAndSubCategoryForHeader 
+  getCategoryAndSubCategoryForHeader,
+  searchCategory
 } from "../controllers/category.controllers.js";
 import { upload } from "../middleware/multer.middlerwares.js";
 import { tokenVerify, role } from "../middleware/auth.middlerwares.js";
@@ -29,5 +30,6 @@ categoryRouter.put("/:id", upload.single("image"), updateCategory);
 
 // Delete category
 categoryRouter.delete("/:id", deleteById);
+categoryRouter.get("/search", searchCategory); // Search categories by name or slug
 
 export default categoryRouter;
