@@ -228,7 +228,6 @@ export const updateCartItem = async (req, res) => {
      const { id } = req.params;
      const { quantity } = req.body;   // quantity can be absolute or relative
     const { userId, visitorId } = getIds(req); // your function to get IDs
-
     if (!id || quantity == null) {
       return res.status(400).json({ success: false, message: "Product ID and quantity are required" });
     }
@@ -244,8 +243,12 @@ export const updateCartItem = async (req, res) => {
 
     // Find item index
     const itemIndex = cart.items.findIndex(
-      (item) => item.id.toString() === id
+      (item) => {
+        return item._id.toString() === id;
+      }
     );
+
+
 
     if (itemIndex === -1) {
       return res.status(404).json({ success: false, message: "Item not found in cart" });

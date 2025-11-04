@@ -20,8 +20,7 @@ export async function getIds(req) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
         // Only pick ID, don’t fetch full user unless needed
-       userId = decoded.userId
-    
+        userId = decoded.userId;
       } catch (err) {
         console.warn("Invalid token:", err.message);
       }
