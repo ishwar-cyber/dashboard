@@ -1,6 +1,7 @@
 import Product from "../models/product.model.js";
 import Category from "../models/category.model.js";
 import Brand from "../models/brand.model.js";
+import Pincode from '../models/service_pincode.model.js';
 import SubCategory from '../models/sub_category.model.js';
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
 import { getProducts, create } from "../services/product.service.js";
@@ -193,6 +194,7 @@ export const getProductById = async (req, res) => {
 
     const product = await Product.findOne({ slug: slug.toLowerCase() })
       .populate('category', 'name slug')
+      .populate('pincode', 'pincode')
       .populate('subCategory', 'name slug')
       .populate('brand', 'name slug');
 
@@ -202,6 +204,7 @@ export const getProductById = async (req, res) => {
         message: 'Product not found',
       });
     }
+console.log('product', product);
 
     res.status(200).json({
       success: true,

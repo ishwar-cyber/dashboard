@@ -29,7 +29,11 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum:['user','admin'],
         default: 'user'
-    }
+    },
+    address:{
+        type: String,
+        default: ''
+    },
 }, {timestamps: true});
 
 const User = mongoose.model('User',userSchema)

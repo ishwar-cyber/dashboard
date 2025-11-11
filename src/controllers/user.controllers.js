@@ -52,4 +52,21 @@ export const getAllUser = async (req, res) => {
         message: error.message
       });
     }
-  };
+};
+
+export const updateAddress = async(req, res, next)=>{
+    try {
+        const {address} = req.body;
+        const user = await User.findById(req.params.id);
+        if(!user){
+            const error = new Error('User not Found');
+            error.statusCode = 404;
+            throw error;
+        }
+        user.address = address;
+        await user.save();
+        res.status(200).json({success: true, data: user});
+    } catch (error) {
+        next(error);
+    }
+};
