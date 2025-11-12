@@ -225,69 +225,88 @@ export const updateCartQuantity = async (req, res) => {
 
 export const updateCartItem = async (req, res) => {
   try {
-     const { id } = req.params;
-     const { quantity } = req.body;   // quantity can be absolute or relative
-    const { userId, visitorId } = getIds(req); // your function to get IDs
+    const { id } = req.params;           // cart item ID
+    const { quantity } = req.body;       // new quantity (absolute)
+    const validation =  (await getIds(req));
+    const userId = validation.userId;
+    const visitorId = validation.visitorId;
+
     if (!id || quantity == null) {
-      return res.status(400).json({ success: false, message: "Product ID and quantity are required" });
+      return res.status(400).json({
+        success: false,
+        message: "Product ID and quantity are required",
+      });
     }
-
-    // Find the correct cart
+    // Find user's cart
     const cart = await Cart.findOne({
-      $or: [{ userId }, { visitorId }]
-    }).populate("items.product","images price");
-
+      $or: [{ userId }, { visitorId }],
+    }).populate("items.product", "images price name");
+    
     if (!cart) {
-      return res.status(404).json({ success: false, message: "Cart not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Cart not found",
+      });
     }
 
-    // Find item index
-    const itemIndex = cart.items.findIndex(
-      (item) => {
-        return item._id.toString() === id;
-      }
-    );
+    // Find the cart item by _id (use .toString() for safety)
 
-
+    const itemIndex = cart.items.findIndex((item) => {
+      console.log('items for id', item._id.toString(), id, item._id.toString() === id.toString());
+      return item._id.toString() === id.toString();
+    });
 
     if (itemIndex === -1) {
-      return res.status(404).json({ success: false, message: "Item not found in cart" });
+      return res.status(404).json({
+        success: false,
+        message: "Item not found in cart",
+      });
     }
-    // Update quantity (absolute update)
+
+    // ✅ Update the quantity
     cart.items[itemIndex].quantity = quantity;
-    // Save updated cart
+
+    // Optionally, remove item if quantity <= 0
+    if (quantity <= 0) {
+      cart.items.splice(itemIndex, 1);
+    }
+
+    // Save cart
     await cart.save();
+
     res.json({
       success: true,
       message: "Quantity updated successfully",
-      data: cart
+      data: cart,
     });
 
   } catch (error) {
     console.error("Error updating quantity:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
 
+
 export const applyCoupons = async (req, res) => {
     try {
-    const validation =  (await getIds(req));
-    const userId = validation.userId;
-    const visitorId = validation.visitorId;
+      const validation =  (await getIds(req));
+      const userId = validation.userId;
+      const visitorId = validation.visitorId;
       // ✅ Build query dynamically
-    let query = null;
-    if (userId) {
-      query = { userId };
-    } else if (visitorId) {
-      query = { visitorId };
-    }
+      if (userId) {
+        query = { userId };
+      } else if (visitorId) {
+        query = { visitorId };
+      }
       const { code } = req.body;
       const cart = await applyCoupon(userId, visitorId, code);
       if(!cart) {
-          return res.status(404).json({ success: false, message: 'Cart calculation failed' });
+        return res.status(404).json({ success: false, message: 'Cart calculation failed' });
       }
-        // Assuming applyCoupon is a function that applies the coupon to the cart
-
+      // Assuming applyCoupon is a function that applies the coupon to the cart
       res.status(200).json({
           success: true,
           message: 'Coupon applied successfully',

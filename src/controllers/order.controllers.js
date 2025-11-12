@@ -499,9 +499,22 @@ export const getUserOrders = async (req, res) => {
 
 export const orderStatus = async (req, res) => {
     try {
-        const order = await Order.findOne({ orderNumber: req.params.order_id });   
+      const { orderId } = req.params;
+      const userId = req.params.userId;
+
+        // const order = await Order.find({ user: userId, orderNumber: orderId }).select('orderStatus statusUpdatedAt');
         // const statuses = Order.schema.path('orderStatus').enumValues;
-        res.json({ success: true, data: order });
+        const order = await Order.find({ user: userId });
+        const findOrder = await order.filter(o => o.id === orderId);
+        if (!findOrder) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+        console.log('order by id', findOrder);
+
+        res.json({ success: true, data: findOrder });
     } catch (error) {
         console.error('Get order statuses error:', error);
         res.status(500).json({
