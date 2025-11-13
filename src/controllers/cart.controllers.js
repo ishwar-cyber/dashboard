@@ -1,4 +1,4 @@
-
+import mongoose from "mongoose";
 import Product from '../models/product.model.js';
 import Cart from '../models/cart.model.js';
 import User from '../models/user.model.js';
@@ -225,11 +225,12 @@ export const updateCartQuantity = async (req, res) => {
 
 export const updateCartItem = async (req, res) => {
   try {
-    const { id } = req.params;           // cart item ID
-    const { quantity } = req.body;       // new quantity (absolute)
-    const validation =  (await getIds(req));
+    const validation = await getIds(req);
     const userId = validation.userId;
     const visitorId = validation.visitorId;
+
+    const { id } = req.params;           // cart item _id
+    const { quantity } = req.body;       // new quantity
 
     if (!id || quantity == null) {
       return res.status(400).json({
@@ -237,11 +238,21 @@ export const updateCartItem = async (req, res) => {
         message: "Product ID and quantity are required",
       });
     }
-    // Find user's cart
-    const cart = await Cart.findOne({
-      $or: [{ userId }, { visitorId }],
-    }).populate("items.product", "images price name");
-    
+
+    // ✅ Build a safe Mongo query
+    const query = { $or: [] };
+    if (userId) query.$or.push({ userId });
+    if (visitorId) query.$or.push({ visitorId });
+
+    if (query.$or.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or missing user/visitor ID",
+      });
+    }
+
+    // ✅ Find the user's cart
+    const cart = await Cart.findOne(query).populate("items.product", "images price name");
     if (!cart) {
       return res.status(404).json({
         success: false,
@@ -249,12 +260,10 @@ export const updateCartItem = async (req, res) => {
       });
     }
 
-    // Find the cart item by _id (use .toString() for safety)
-
-    const itemIndex = cart.items.findIndex((item) => {
-      console.log('items for id', item._id.toString(), id, item._id.toString() === id.toString());
-      return item._id.toString() === id.toString();
-    });
+    // ✅ Find the cart item index
+    const itemIndex = cart.items.findIndex(
+      (item) => item._id.toString() === id.toString()
+    );
 
     if (itemIndex === -1) {
       return res.status(404).json({
@@ -263,15 +272,10 @@ export const updateCartItem = async (req, res) => {
       });
     }
 
-    // ✅ Update the quantity
+    // ✅ Update or remove the item
     cart.items[itemIndex].quantity = quantity;
+    if (quantity <= 0) cart.items.splice(itemIndex, 1);
 
-    // Optionally, remove item if quantity <= 0
-    if (quantity <= 0) {
-      cart.items.splice(itemIndex, 1);
-    }
-
-    // Save cart
     await cart.save();
 
     res.json({
@@ -279,7 +283,6 @@ export const updateCartItem = async (req, res) => {
       message: "Quantity updated successfully",
       data: cart,
     });
-
   } catch (error) {
     console.error("Error updating quantity:", error);
     res.status(500).json({
@@ -292,7 +295,7 @@ export const updateCartItem = async (req, res) => {
 
 export const applyCoupons = async (req, res) => {
     try {
-      const validation =  (await getIds(req));
+      const validation = await getIds(req);
       const userId = validation.userId;
       const visitorId = validation.visitorId;
       // ✅ Build query dynamically

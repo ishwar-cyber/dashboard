@@ -3,8 +3,9 @@ import jwt from "jsonwebtoken";
 // Helper to get IDs
 export async function getIds(req) {
   try {
-    let userId = '';
-    let visitorId = '';
+    let userId = null;
+    let visitorId = null;
+
     // ✅ Extract token
     const authHeader =
       req.headers.authorization ||
@@ -19,19 +20,25 @@ export async function getIds(req) {
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        // Only pick ID, don’t fetch full user unless needed
-        userId = decoded.userId;
+        if (decoded?.userId) {
+          userId = decoded.userId;
+        }
       } catch (err) {
         console.warn("Invalid token:", err.message);
       }
     }
-    // ✅ If no user, fallback to visitor
+
+    // ✅ Fallback to visitor ID if user not logged in
     if (!userId) {
       visitorId = req.visitorId || req.cookies?.visitorId || null;
     }
 
     return { userId, visitorId };
   } catch (err) {
-    return { userId: null, visitorId: req.visitorId || req.cookies?.visitorId || null };
+    console.error("getIds error:", err.message);
+    return {
+      userId: null,
+      visitorId: req.visitorId || req.cookies?.visitorId || null,
+    };
   }
 }
