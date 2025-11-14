@@ -57,6 +57,8 @@ export const getAllUser = async (req, res) => {
 export const updateAddress = async(req, res, next)=>{
     try {
         const {address} = req.body;
+        console.log('address', address);
+        
         const user = await User.findById(req.params.id);
         if(!user){
             const error = new Error('User not Found');
@@ -70,3 +72,46 @@ export const updateAddress = async(req, res, next)=>{
         next(error);
     }
 };
+
+export const addAddress = async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+    const newAddress = req.body.address;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    
+    user.addresses.push(newAddress);
+
+    // If this is the first address, set default
+    if (user.addresses.length === 1) {
+      user.addresses[0].isDefault = true;
+    }
+
+    
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Address added",
+      data: user.addresses
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUserAddresses = async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });  
+
+    res.status(200).json({
+      success: true,
+      data: user.addresses
+    });
+  } catch (error) {
+    next(error);
+  }
+}

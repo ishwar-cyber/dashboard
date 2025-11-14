@@ -1,5 +1,6 @@
 import Coupon from '../models/coupon.model.js';  // Fix the path to match your project structure
-
+import Cart from '../models/cart.model.js';
+import { getIds } from '../utilities/checkUserAndVisitor.js';
 export const createCoupon = async (req, res) => {
     try {
         const { code, discount, product,noExpiry, applyto, discountType, startDate, expiryDate } = req.body;
@@ -123,35 +124,69 @@ export const deleteCoupon = async (req, res) => {
 }
 
 
-export const applyCoupon = async(req, res) =>{
-     try {
+export const applyCoupon = async (req, res, next) => {
+  try {
     const { code } = req.body;
-
+    const userId = await getIds(req);
+    // 1️⃣ Find coupon
     const coupon = await Coupon.findOne({ code });
     if (!coupon) {
       return res.status(400).json({ message: "Invalid coupon" });
     }
 
-    // Expiry check
+    // 2️⃣ Expiry Check
     if (new Date(coupon.expiry) < new Date()) {
       return res.status(400).json({ message: "Coupon expired" });
     }
 
-    // // Min order check
-    // if (cartTotal < coupon.minOrder) {
-    //   return res
-    //     .status(400)
-    //     .json({ message: `Minimum order ₹${coupon.minOrder} required` });
-    // }
+    // 3️⃣ Get user cart total
+    const cartItems = await Cart.find({ userId }).populate("productId");
 
-    res.json({
-      code: coupon.code,
-      type: coupon.type,
-      value: coupon.value,
-      message: "Coupon applied successfully",
+    if (!cartItems.length) {
+      return res.status(400).json({ message: "Cart is empty" });
+    }
+
+    // Calculate cart total
+    let cartTotal = 0;
+    cartItems.forEach(item => {
+      cartTotal += item.productId.price * item.quantity;
     });
+
+    // 4️⃣ Apply Minimum Order Validation
+    if (coupon.minOrder && cartTotal < coupon.minOrder) {
+      return res.status(400).json({
+        message: `Minimum order of ₹${coupon.minOrder} required`
+      });
+    }
+
+    // 5️⃣ Apply Discount
+    let discountAmount = 0;
+
+    if (coupon.type === "percentage") {
+      discountAmount = (cartTotal * coupon.value) / 100;
+    } else if (coupon.type === "flat") {
+      discountAmount = coupon.value;
+    }
+
+    // Prevent negative total
+    let finalTotal = Math.max(cartTotal - discountAmount, 0);
+
+    // 6️⃣ Send response
+    res.status(200).json({
+      success: true,
+      message: "Coupon applied successfully",
+      coupon: {
+        code: coupon.code,
+        type: coupon.type,
+        value: coupon.value,
+      },
+      cartTotal,
+      discount: discountAmount,
+      finalTotal
+    });
+
   } catch (error) {
     next(error);
   }
-}
+};
 
