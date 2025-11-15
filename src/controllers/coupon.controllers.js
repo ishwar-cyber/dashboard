@@ -127,7 +127,7 @@ export const deleteCoupon = async (req, res) => {
 export const applyCoupon = async (req, res, next) => {
   try {
     const { code } = req.body;
-    const userId = await getIds(req);
+    const {userId} = await getIds(req);
     // 1️⃣ Find coupon
     const coupon = await Coupon.findOne({ code });
     if (!coupon) {
@@ -140,18 +140,17 @@ export const applyCoupon = async (req, res, next) => {
     }
 
     // 3️⃣ Get user cart total
-    const cartItems = await Cart.find({ userId }).populate("productId");
-
+    const cartItems = await Cart.find({ userId });
     if (!cartItems.length) {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
     // Calculate cart total
     let cartTotal = 0;
-    cartItems.forEach(item => {
-      cartTotal += item.productId.price * item.quantity;
-    });
 
+    for (const item of cartItems) {
+        cartTotal = item.subTotal 
+    }
     // 4️⃣ Apply Minimum Order Validation
     if (coupon.minOrder && cartTotal < coupon.minOrder) {
       return res.status(400).json({
@@ -162,12 +161,11 @@ export const applyCoupon = async (req, res, next) => {
     // 5️⃣ Apply Discount
     let discountAmount = 0;
 
-    if (coupon.type === "percentage") {
-      discountAmount = (cartTotal * coupon.value) / 100;
-    } else if (coupon.type === "flat") {
-      discountAmount = coupon.value;
+    if (coupon.discountType === "percentage") {
+      discountAmount = (cartTotal * coupon.discount) / 100;
+    } else if (coupon.discountType === "flat" || coupon.discountType === 'rupees') {
+      discountAmount = coupon.discount;
     }
-
     // Prevent negative total
     let finalTotal = Math.max(cartTotal - discountAmount, 0);
 

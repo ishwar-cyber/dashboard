@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
-const SpecificationSchema = new Schema ({
+/* ---------------- Specification Schema ---------------- */
+const SpecificationSchema = new Schema({
     name: {
         type: String,
         trim: true,
@@ -14,6 +15,31 @@ const SpecificationSchema = new Schema ({
     }
 });
 
+/* ---------------- Antivirus Key Schema (UPDATED) ---------------- */
+const AntivirusKeySchema = new Schema({
+    key: {
+        type: String,
+        trim: true,
+    },
+    status: {
+        type: String,
+        enum: ["available", "sold", "invalid"],
+        default: "available",
+        trim: true
+    },
+    soldTo: {
+        type: String, // user email or userId
+        default: null
+    },
+    soldAt: {
+        type: Date,
+        default: null
+    }
+},
+{ _id: true }
+);
+
+/* ---------------- Offer Price Schema ---------------- */
 const OfferPriceSchema = new Schema({
     quantity: {
         type: Number,
@@ -24,37 +50,23 @@ const OfferPriceSchema = new Schema({
         trim: true,
     }
 });
-const ImageSchema = new Schema (
-    {
-        url: {
-            type: String,
-        },
-        public_id: String
-    }
-)
-const VariantSchema = new Schema(
-    {
-        name:{
-            type: String,
-            trim:true
-        },
-        sku:{
-            type: String,
-            trim:true
-        },
-        price:{
-            type: Number,
-            min: 0,
-        },
-        stock: {
-            type: Number,
-            min:0,
-            default: 0
-        },
-        image: [ImageSchema]
-    },{
-        _id: true
-    });
+
+/* ---------------- Image Schema ---------------- */
+const ImageSchema = new Schema({
+    url: { type: String },
+    public_id: String
+});
+
+/* ---------------- Variant Schema ---------------- */
+const VariantSchema = new Schema({
+    name: { type: String, trim: true },
+    sku: { type: String, trim: true },
+    price: { type: Number, min: 0 },
+    stock: { type: Number, min: 0, default: 0 },
+    image: [ImageSchema]
+}, { _id: true });
+
+/* ---------------- Product Schema ---------------- */
 const ProductSchema = new Schema(
     {
         name: {
@@ -62,14 +74,17 @@ const ProductSchema = new Schema(
             required: [true, 'Product name is required'],
             trim: true
         },
-        images:[ImageSchema],
-        discount:{
+
+        images: [ImageSchema],
+
+        discount: {
             type: Number,
             min: 0,
             max: 100,
-            default:0
+            default: 0
         },
-        slug:{
+
+        slug: {
             type: String,
             required: true,
             trim: true,
@@ -77,112 +92,112 @@ const ProductSchema = new Schema(
             unique: true,
             index: true,
         },
+
         price: {
             type: Number,
             required: [true, 'Product price required'],
             min: [0, 'Price must be greater than 0'],
             max: [1000000, 'Price seems too high']
         },
+
         variants: [VariantSchema],
+
         category: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'Category', // Changed to singular and capitalized (Mongoose convention)
+            ref: 'Category',
             required: [true, 'At least one category is required']
         },
-        pincode: [{
-            type: String,
-        }],
+
+        pincode: [{ type: String }],
+
         stock: {
             type: mongoose.Schema.Types.Mixed,
             required: [true, 'Stock is required']
         },
+
         description: {
             type: String,
             required: [true, 'Description is required'],
             maxLength: [2000, 'Description cannot exceed 2000 characters']
         },
+
         sku: {
             type: String,
             trim: true,
             unique: true
         },
-        featured:{
-            type: Boolean,
-            default: false
-        },
-        bestSeller:{
-            type: Boolean,
-            default: false
-        },
-        tag:[String],
-        rating:{
+
+        featured: { type: Boolean, default: false },
+        bestSeller: { type: Boolean, default: false },
+
+        tag: [String],
+
+        rating: {
             type: Number,
             default: 0,
             min: 0,
             max: 5
         },
-        serviceCharges:{
-            type: Number,
-            default: 0
-        },
-        weight: {
-            type: Number,
-            required: [true, 'Product weight is required'],
-            trim: true,
-        },
-        length :{
-            type: Number,
-            required: [true, 'Product lenght is required'],
-            trim: true,
-        },
-        width:{
-            type: Number,
-            required: [true, 'Product width is required'],
-            trim: true,
-        },
-        height:{
-            type: Number,
-            required: [true, 'Product hight is required'],
-            trim: true,
-        },
+
+        serviceCharges: { type: Number, default: 0 },
+
+        weight: { type: Number, required: true, trim: true },
+        length: { type: Number, required: true, trim: true },
+        width: { type: Number, required: true, trim: true },
+        height: { type: Number, required: true, trim: true },
+
         subCategory: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'SubCategory', // Changed to singular and capitalized
+            ref: 'SubCategory',
             required: [true, 'Subcategory name is required']
         },
+
         brand: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'Brand', // Changed to singular and capitalized
+            ref: 'Brand',
             required: [true, 'Brand name is required']
         },
-        status: {
-            type: Boolean,
-            default: true
-        },
+
+        status: { type: Boolean, default: true },
+
         specifications: [SpecificationSchema],
         offerPrice: [OfferPriceSchema],
+
+        /* ---------------- Antivirus License Keys (UPDATED) ---------------- */
+        antivirusKeys: [AntivirusKeySchema],
+
         warranty: [
             {
                 period: {
                     type: Number,
                     min: [0, 'Warranty period cannot be negative'],
                     max: [120, 'Warranty period cannot exceed 120 months']
-                }, 
-                type: {
-                    type: String,
-                    // enum: ['Manufacturer', 'Seller', 'Extended', 'Other'],
-                    // default: 'Manufacturer'
-                }
+                },
+                type: { type: String }
             }
         ]
-    },{timestamps: true,
-        toJSON: { virtuals: true,},
-        toObject: { virtuals: true}
-    });
+    },
+    {
+        timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
+    }
+);
 
-// Optional: Add indexes for better query performance
-// ProductSchema.index({ name: 'text', description: 'text', model: 'text', 'attributes.$*': 'text' });
+/* ---------------- Virtual: Auto antivirus stock ---------------- */
+ProductSchema.virtual("availableAntivirusStock").get(function () {
+    if (!this.antivirusKeys) return 0;
+    return this.antivirusKeys.filter(k => k.status === "available").length;
+});
 
-const Product = mongoose.model('Product', ProductSchema); // Capitalized model name
+/* ---------------- Optional: Sync stock with Antivirus keys ---------------- */
+ProductSchema.pre("save", function (next) {
+    if (this.antivirusKeys?.length > 0) {
+        this.stock = this.antivirusKeys.filter(k => k.status === "available").length;
+    }
+    next();
+});
 
+/* ---------------- Export Model ---------------- */
+const Product = mongoose.model('Product', ProductSchema);
 export default Product;

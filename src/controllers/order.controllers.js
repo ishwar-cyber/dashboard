@@ -360,6 +360,38 @@ export const updateOrderStatus = async (req, res) => {
   }
 };
 
+export const updateOrderTracking = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.query;
+
+    const order = await Order.findById(orderId);
+    console.log('odert data', order);
+    
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const step = order.tracking.find(s => s.key === status);
+    if (!step) return res.status(400).json({ message: "Invalid status" });
+
+    // Mark current step as completed
+    step.completed = true;
+    step.completedAt = new Date();
+
+    // Update global order status
+    order.orderStatus = status;
+
+    await order.save();
+
+    res.json({
+      success: true,
+      message: `Order updated to ${status}`,
+      tracking: order.tracking
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 export const cancelOrder = async (req, res) => {
     try {
@@ -525,3 +557,24 @@ export const orderStatus = async (req, res) => {
     }
 };
 
+export const getOrderTracking = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;    
+    const order = await Order.findById(orderId);
+    
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+       payload: {
+        tracking: order.tracking,
+        orderNumber: order.orderNumber
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};

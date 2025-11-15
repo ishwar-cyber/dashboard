@@ -18,7 +18,7 @@ import pincodeRouter from "./src/routes/service_pincode.routers.js";
 import paymentRoute from "./src/routes/payment.routes.js";
 import sitemapRouter from "./src/routes/sitemap.routes.js";
 import saleReportRouter from "./src/routes/sale-reports.routers.js";
-
+import dashboardRouter from "./src/routes/dashboard.routes.js";
 const app = express();
 
 app.use(express.json({limit: "16kb"}));
@@ -64,6 +64,7 @@ app.use('/api/v1/subcategory', subCategoryRouter);
 app.use('/api/v1/pincode', pincodeRouter);
 app.use('/api/v1/payment',paymentRoute);
 app.use('/api/v1/reports', saleReportRouter);
+app.use('/api/v1/dashboard', dashboardRouter);
 
 app.get('/', (req,res)=>{
     res.send("shooppyness api working fine")
