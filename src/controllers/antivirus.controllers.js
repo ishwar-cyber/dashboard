@@ -1,5 +1,5 @@
-import AntivirusKey from "../models/AntivirusKey.js";
-import Product from "../models/Product.js";
+import AntivirusKey from "../models/antivirus.model.js";
+import Product from "../models/product.model.js";
 import mongoose from "mongoose";
 
 /**
