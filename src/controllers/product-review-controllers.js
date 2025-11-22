@@ -46,11 +46,102 @@ export const getProductReviews = async (req, res) => {
 
 export const deleteProductReview = async (req, res) => {
     try {
-        const { reviewId } = req.params;
-        await ProductReview.findByIdAndDelete(reviewId);
+        const { id } = req.params;
+        await ProductReview.findByIdAndDelete(id);
         return res.status(200).json({ message: "Review deleted" });
     } catch (err) {
         console.error(err);
         return res.status(500).json({ message: err.message });
     }
 };  
+
+export const getAllProductsReviews = async (req, res) => {
+  try {
+    // Query params
+    const {
+      page = 1,
+      limit = 10,
+      productId,
+      rating,
+      status,
+      startDate,
+      endDate
+    } = req.query;
+
+    const skip = (page - 1) * limit;
+
+    // Mongo Filter Object
+    const match = {};
+
+    if (productId) match.productId = new mongoose.Types.ObjectId(productId);
+    if (rating) match.rating = Number(rating);
+    if (status) match.status = status;
+
+    if (startDate && endDate) {
+      match.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate + "T23:59:59")
+      };
+    }
+
+    // Aggregation
+    const reviews = await ProductReview.aggregate([
+      { $match: match },
+
+      // Join Product
+      {
+        $lookup: {
+          from: "products",
+          localField: "productId",
+          foreignField: "_id",
+          as: "product"
+        }
+      },
+      { $unwind: "$product" },
+
+      // Sort latest
+      { $sort: { createdAt: -1 } },
+
+      // Pagination
+      { $skip: skip },
+      { $limit: Number(limit) },
+
+      // Shape response
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          email: 1,
+          rating: 1,
+          comment: 1,
+          status: 1,
+          createdAt: 1,
+
+          productId: "$product._id",
+          productName: "$product.name",
+          productImage: { $arrayElemAt: ["$product.images.url", 0] },
+          productPrice: "$product.price"
+        }
+      }
+    ]);
+
+    // Count Total
+    const totalReviews = await ProductReview.countDocuments(match);
+
+    return res.status(200).json({
+      success: true,
+      page: Number(page),
+      limit: Number(limit),
+      totalReviews,
+      totalPages: Math.ceil(totalReviews / limit),
+      reviews
+    });
+
+  } catch (error) {
+    console.error("Review Fetch Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
