@@ -7,7 +7,9 @@ import {
     cancelOrder,
     getUserOrders,
     orderStatus,
-    getOrderTracking
+    getOrderTracking,
+    getOrderByIdAdmin,
+    getOrderByOrderNumber
 } from '../controllers/order.controllers.js';
 import { tokenVerify, role } from '../middleware/auth.middlerwares.js';
 
@@ -33,7 +35,7 @@ orderRouter.get('/', tokenVerify, role('admin'), getAllOrders);
  * @access  Private
  */
 orderRouter.get('/user/:id', tokenVerify, getUserOrders);
-
+orderRouter.get('/admin/:orderId', tokenVerify, role('admin'), getOrderByIdAdmin);
 /**
  * @route   GET /api/orders/:orderId
  * @desc    Get order by ID
@@ -41,6 +43,7 @@ orderRouter.get('/user/:id', tokenVerify, getUserOrders);
  */
 orderRouter.get('/:orderId', tokenVerify, getOrderById);
 
+orderRouter.get('/status/:id', tokenVerify, getOrderByOrderNumber);
 /**
  * @route   PUT /api/orders/:orderId/status
  * @desc    Update order status (Admin only)

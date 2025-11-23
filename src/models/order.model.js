@@ -36,9 +36,12 @@ const orderSchema = new mongoose.Schema({
     type: [trackingStepSchema],
     default: [
       { key: "created", label: "Order Placed", completed: true, completedAt: new Date() },
+      { key: "confirmed", label: "Confirmed", completed: false },
       { key: "packed", label: "Packed", completed: false },
       { key: "shipped", label: "Shipped", completed: false },
-      { key: "delivered", label: "Delivered", completed: false }
+      { key: "delivered", label: "Delivered", completed: false },
+      { key: "cancelled", label: "Cancelled", completed: false },
+      { key: "returned", label: "Returned", completed: false }
     ]
   },
   paymentMethod: { type: String, required: true },

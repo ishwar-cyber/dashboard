@@ -79,23 +79,24 @@ export const createOrder = async (req, res) => {
 
     await order.save();
     // ✅ Clear cart after order
-    await Cart.findOneAndDelete({ userId });
        // Call Cashfree API
     const user = await User.findById(userId);
     const response = await axios.post(
       `https://sandbox.cashfree.com/pg/orders`,
       {
         orderNumber: orderNumber,
-        order_amount: 1,
+        order_amount: order.totalAmount,
         order_currency: "INR",
         customer_details: {
           customer_id: "cust_" + Date.now(),
-          customer_name: "ishwar pandit",
-          customer_email: "customerEmail@gmail.com",
-          customer_phone: "9856325415",
+          customer_name: order?.shippingAddress ? shippingAddress?.fullName :'',
+          customer_email: order?.shippingAddress ? shippingAddress?.email : "customerEmail@gmail.com",
+          customer_phone: order?.shippingAddress ? shippingAddress?.phone : "9999999999",
         },
         order_meta: {
-          return_url: `https://application-shoppyness.vercel.app/payment-status?order_id={order_id}`,
+          return_url: "http://localhost:4400/payment-status?order_id={order_id}",
+          // optional webhook
+          notify_url: "http://localhost:8000/api/v1/payment/webhook"
         },
       },
       {
@@ -127,7 +128,7 @@ export const createOrder = async (req, res) => {
         let findProduct = await Product.findByIdAndUpdate(item.product.id,{ $inc: { stock: -item.quantity }});
       }
     }
-
+    await Cart.findOneAndDelete({ userId });
     res.json({ success: true, paymentLink, paymentSessionId, orderNumber });
   } catch (err) {
     console.error(err);
@@ -274,7 +275,7 @@ export const getOrderById = async (req, res) => {
         const order = await Order.findById(orderId)
             .populate('user', 'name email phone')
             .populate({
-                path: 'orderItems.product',
+                path: 'items.product',
                 select: 'name price thumbnail sku description'
             });
 
@@ -306,6 +307,81 @@ export const getOrderById = async (req, res) => {
             error: error.message
         });
     }
+};
+
+export const getOrderByIdAdmin = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!validateObjectId(orderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order ID"
+      });
+    }
+
+    // Fetch full order with product & user
+    const order = await Order.findById(orderId)
+      .populate("user", "name email phone role createdAt")
+      .populate({
+        path: "items.product",
+        select: "name price images sku description stock"
+      })
+      .lean();
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+
+    // --------------------------------
+    // 📦 Summary (based on your fields)
+    // --------------------------------
+    const totalItems = order.items?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0;
+
+    const totalPrice = order.items?.reduce((sum, i) =>
+      sum + (i.price || 0) * (i.quantity || 0), 0
+    ) || 0;
+
+    order.summary = {
+      orderNumber: order.orderNumber,
+      totalItems,
+      totalPrice,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.orderStatus,
+      createdAt: order.createdAt,
+    };
+
+    // --------------------------------
+    // 🚚 Tracking Status Summary
+    // --------------------------------
+    if (Array.isArray(order.tracking)) {
+      order.trackingSummary =
+        order.tracking.find(t => t.completed) || order.tracking[0];
+    }
+
+    // --------------------------------
+    // 🧭 Admin Info
+    // --------------------------------
+    order.adminView = true;
+
+    return res.json({
+      success: true,
+      data: order
+    });
+
+  } catch (error) {
+    console.error("Admin Get Order Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve order",
+      error: error.message
+    });
+  }
 };
 
 export const updateOrderStatus = async (req, res) => {
@@ -366,11 +442,16 @@ export const updateOrderTracking = async (req, res, next) => {
     const { status } = req.query;
 
     const order = await Order.findById(orderId);
-    console.log('odert data', order);
+    // console.log('odert data', order);
     
     if (!order) return res.status(404).json({ message: "Order not found" });
-
-    const step = order.tracking.find(s => s.key === status);
+    // console.log('status', status);
+    
+    const step = order.tracking.filter(s => {
+      console.log('orde keyssss', s.key, status);
+      
+      s.key === status
+    });
     if (!step) return res.status(400).json({ message: "Invalid status" });
 
     // Mark current step as completed
@@ -379,11 +460,13 @@ export const updateOrderTracking = async (req, res, next) => {
 
     // Update global order status
     order.orderStatus = status;
-
+    console.log('ordersssss', order);
+    
     await order.save();
 
     res.json({
       success: true,
+      orderStatus: order.orderStatus,
       message: `Order updated to ${status}`,
       tracking: order.tracking
     });
@@ -530,8 +613,8 @@ export const getUserOrders = async (req, res) => {
 };
 
 export const orderStatus = async (req, res) => {
-    try {
-      const { orderId } = req.params;
+    try {  
+      const { orderId } = req.params.id;
       const userId = req.params.userId;
 
         // const order = await Order.find({ user: userId, orderNumber: orderId }).select('orderStatus statusUpdatedAt');
@@ -557,6 +640,45 @@ export const orderStatus = async (req, res) => {
     }
 };
 
+export const getOrderByOrderNumber = async (req, res, next) => {
+  try {
+    const orderId = req.params.id;
+    console.log('order number', orderId);
+    const order = await Order.findOne({ orderNumber: orderId }).lean();
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found',
+      });
+    }
+
+    return res.json({
+      success: true,
+      orderId: order.orderNumber,
+      status: order.paymentStatus, // 'pending' | 'success' | 'failed'
+      amount: order.totalAmount,
+      currency: 'INR',
+      transactionId: order.transactionId,
+      paymentMessage: order.paymentMessage,
+      paymentTime: order.paymentTime,
+      paymentSessionId: order.paymentSessionId,
+      items: order.items?.map((it) => ({
+        productId: it.product?.toString(),
+        name: it.name,
+        price: it.price,
+        quantity: it.quantity,
+        image: it.image,
+      })),
+    });
+  } catch (err) {
+    console.error('Order status error', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+};
+ 
 export const getOrderTracking = async (req, res, next) => {
   try {
     const { orderId } = req.params;    
@@ -569,6 +691,7 @@ export const getOrderTracking = async (req, res, next) => {
     res.status(200).json({
       success: true,
        payload: {
+        orderStatus: order.orderStatus,
         tracking: order.tracking,
         orderNumber: order.orderNumber
       }
