@@ -146,8 +146,6 @@ export const getCategoryAndSubCategoryForHeader = async (req, res) => {
 };
 
 export const searchCategory = async (req, res) => {
-    console.log("Search query:", req );
-    
     try {
         const query = req.query.category || '';
         if (!query.trim()) {

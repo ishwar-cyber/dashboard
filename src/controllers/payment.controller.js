@@ -1,59 +1,68 @@
-import { CASHFREE_BASE_URL, CASHFREE_APP_ID, CASHFREE_SECRET_KEY} from "../../config/env.js";
 import axios from "axios"; // <-- missing import
-export const createOrderPayment = async (req, res) => {
- try {
-    const { orderId, amount, customerName, customerPhone, customerEmail } = req.body;
+import Order from "../models/order.model.js";
+export const cashfreeWebhook = async (req, res) => {
+  try {
+    const event = JSON.parse(req.body.toString()); // raw buffer → JSON
 
-    // Step 1: Create order with Cashfree API
-    const response = await axios.post(
-      "https://sandbox.cashfree.com/pg/orders",
+    const orderId = event.data.order.order_id;
+    const paymentStatus = event.data.payment.payment_status; // SUCCESS, FAILED, PENDING
+
+    // map Cashfree status to our status
+    let finalStatus = "pending";
+    if (paymentStatus === "SUCCESS") finalStatus = "success";
+    if (paymentStatus === "FAILED") finalStatus = "failed";
+
+    await Order.updateOne(
+      { orderNumber: orderId },
       {
-        order_id: orderId,
-        order_amount: amount,
-        order_currency: "INR",
-        customer_details: {
-          customer_id: "CUST_" + Date.now(),
-          customer_name: customerName,
-          customer_email: customerEmail,
-          customer_phone: customerPhone,
-        },
-        order_meta: {
-          return_url: `https://application-shoppyness.vercel.app/payment-status?order_id={orderId}`,
-        },
-      },
-      {
-        headers: {
-          "x-client-id": CASHFREE_APP_ID,
-          "x-client-secret": CASHFREE_SECRET_KEY,
-          "x-api-version": "2022-09-01",
-          "Content-Type": "application/json",
-        },
+        paymentStatus: finalStatus,
+        paymentInfo: event.data.payment,
       }
     );
 
-    return res.json({
-      success: true,
-      payment_session_id: response.data.payment_session_id,
-    });
-  } catch (error) {
-    console.error("Error creating Cashfree order:", error.response?.data || error.message);
-    return res.status(500).json({ success: false, error: error.message });
-  }
-}
-
-export const cashfreeWebhook = async (req, res) => {
-  try {
-    const { order_id, order_status } = req.body;
-
-    const order = await Order.findOne({ orderId: order_id });
-    if (order) {
-      order.status = order_status.toLowerCase(); // PAID, FAILED
-      await order.save();
-    }
-
-    res.json({ status: "ok" });
+    return res.status(200).send("OK");
   } catch (err) {
-    console.error("Webhook Error:", err);
-    res.status(500).json({ error: "Webhook failed" });
+    console.error("Webhook error:", err);
+    return res.status(400).send("Webhook Error");
   }
 };
+
+
+export const getPaymentStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const url = `https://sandbox.cashfree.com/pg/orders/${orderId}`;
+
+    const response = await axios.get(url, {
+      headers: {
+         "x-client-id": "TEST43174731bcc18792591b7b55e3747134",
+          "x-client-secret": "TEST9515edf6d8b1c6c1768721988ec4dcae903f6ed",
+          "x-api-version": "2025-01-01",
+          "Content-Type": "application/json",
+      }
+    });
+    await updatePaymentStatus(orderId, response.data.order_status, response.data.payment);
+    return res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error("Cashfree Verify Error:", error.response?.data);
+    return res.status(500).json({
+      success: false,
+      error: error.response?.data || error.message
+    });
+  }
+};
+
+export const updatePaymentStatus = async (orderId, status, paymentInfo) => {
+  try {
+    await Order.updateOne(
+      { orderNumber: orderId },
+      { paymentStatus: status, paymentInfo: paymentInfo }
+    );
+  } catch (error) {
+    console.error("Update Payment Status Error:", error);
+  }
+}

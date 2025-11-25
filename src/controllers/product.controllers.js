@@ -60,7 +60,6 @@ export const getAllProducts = async (req, res) => {
       .populate('subCategory', 'name slug')
       .populate('brand', 'name slug')
       .sort({ createdAt: -1 });
-
     res.json({ success: true, count: products.length, data: products });
   } catch (err) {
     console.error('Error fetching products:', err);
@@ -142,7 +141,8 @@ export const filterProducts = async (req, res) => {
       if (minPrice) filter.price.$gte = Number(minPrice);
       if (maxPrice) filter.price.$lte = Number(maxPrice);
     }
-
+    filter.status = true;
+    filter.stock = 'in';
     // 🔹 Fetch products with populated refs
     const products = await Product.find(filter)
       .populate("brand", "name")
@@ -186,8 +186,6 @@ export const searchProduct = async (req, res) => {
 export const getProductById = async (req, res) => {
  try {
     const { slug } = req.params;
-    console.log("Fetching product with slug:", slug);
-
     if(!slug) {
       return res.status(400).json({ success: false, message: 'Product slug is required' });
     }
@@ -204,8 +202,6 @@ export const getProductById = async (req, res) => {
         message: 'Product not found',
       });
     }
-console.log('product', product);
-
     res.status(200).json({
       success: true,
       data: product,
@@ -392,7 +388,6 @@ export const updateProductById = async (req, res, next) => {
           : variant.image || null,
       }));
     }
-console.log('Processed variants:', updates.variants);
     // ✅ Pincode
     if (updates.pincode && Array.isArray(updates.pincode)) {
       updates.pincode = updates.pincode.map((p) => p.id || p.name || p);

@@ -43,8 +43,6 @@ export const createOrder = async (req, res) => {
           return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
         }
       } else {
-        console.log(product);
-        
         if (product.stock === 'out') {
           return res.status(400).json({ message: `Product ${item.name} is out of stock` });
         }
@@ -65,7 +63,6 @@ export const createOrder = async (req, res) => {
     }
 
     const finalAmount = totalAmount - discount;
-
     const order = new Order({
       orderNumber,
       user: userId || null,
@@ -73,41 +70,43 @@ export const createOrder = async (req, res) => {
       items,
       shippingAddress,
       paymentMethod,
-      totalAmount: finalAmount,
+      finalAmount,
       discountApplied: discount,
     });
-
     await order.save();
     // ✅ Clear cart after order
        // Call Cashfree API
-    const user = await User.findById(userId);
-    const response = await axios.post(
-      `https://sandbox.cashfree.com/pg/orders`,
-      {
-        orderNumber: orderNumber,
-        order_amount: order.totalAmount,
-        order_currency: "INR",
-        customer_details: {
-          customer_id: "cust_" + Date.now(),
-          customer_name: order?.shippingAddress ? shippingAddress?.fullName :'',
-          customer_email: order?.shippingAddress ? shippingAddress?.email : "customerEmail@gmail.com",
-          customer_phone: order?.shippingAddress ? shippingAddress?.phone : "9999999999",
-        },
-        order_meta: {
-          return_url: "http://localhost:4400/payment-status?order_id={order_id}",
-          // optional webhook
-          notify_url: "http://localhost:8000/api/v1/payment/webhook"
-        },
-      },
-      {
-        headers: {
+  const user = await User.findById(userId);
+  const response = await axios.post(
+  `https://sandbox.cashfree.com/pg/orders`,
+  {
+    order_id: orderNumber,   // use your own order number here
+    order_amount: finalAmount,
+    order_currency: "INR",
+    customer_details: {
+      customer_id: userId || visitorId,
+      customer_name: shippingAddress?.fullName || "",
+      customer_email: shippingAddress?.email || "customerEmail@gmail.com",
+      customer_phone: shippingAddress?.phone || "9999999999",
+    },
+    order_meta: {
+      return_url: "http://application-shoppyness.vercel.app/payment-status?order_id={order_id}",
+      notify_url: "http://application-shoppyness.vercel.app/api/payment/webhook"
+    }
+  },
+  {
+    headers: {
           "x-client-id": "TEST43174731bcc18792591b7b55e3747134",
           "x-client-secret": "TEST9515edf6d8b1c6c1768721988ec4dcae903f6ed",
           "x-api-version": "2025-01-01",
           "Content-Type": "application/json",
-        },
-      }
-    );
+    },
+  }
+);
+
+    const cashfreeOrderId = response.data.order_id;
+    order.cashfreeOrderId = cashfreeOrderId;
+    await order.save();
 
     const paymentLink = response.data.payments?.url;
     const paymentSessionId = response.data.payment_session_id;
@@ -442,26 +441,16 @@ export const updateOrderTracking = async (req, res, next) => {
     const { status } = req.query;
 
     const order = await Order.findById(orderId);
-    // console.log('odert data', order);
-    
     if (!order) return res.status(404).json({ message: "Order not found" });
-    // console.log('status', status);
-    
     const step = order.tracking.filter(s => {
-      console.log('orde keyssss', s.key, status);
-      
       s.key === status
     });
     if (!step) return res.status(400).json({ message: "Invalid status" });
-
     // Mark current step as completed
     step.completed = true;
     step.completedAt = new Date();
-
     // Update global order status
     order.orderStatus = status;
-    console.log('ordersssss', order);
-    
     await order.save();
 
     res.json({
@@ -627,8 +616,6 @@ export const orderStatus = async (req, res) => {
                 message: 'Order not found'
             });
         }
-        console.log('order by id', findOrder);
-
         res.json({ success: true, data: findOrder });
     } catch (error) {
         console.error('Get order statuses error:', error);
@@ -643,7 +630,6 @@ export const orderStatus = async (req, res) => {
 export const getOrderByOrderNumber = async (req, res, next) => {
   try {
     const orderId = req.params.id;
-    console.log('order number', orderId);
     const order = await Order.findOne({ orderNumber: orderId }).lean();
     if (!order) {
       return res.status(404).json({

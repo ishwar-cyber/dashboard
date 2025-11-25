@@ -52,6 +52,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
+app.use("/api/payments/webhook", express.raw({ type: "*/*" }));
 app.use('/', sitemapRouter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);

@@ -57,8 +57,6 @@ export const getAllUser = async (req, res) => {
 export const updateAddress = async(req, res, next)=>{
     try {
         const {address} = req.body;
-        console.log('address', address);
-        
         const user = await User.findById(req.params.id);
         if(!user){
             const error = new Error('User not Found');
