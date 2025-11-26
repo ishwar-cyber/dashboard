@@ -121,7 +121,12 @@ export const deleteById = async (req, res) => {
 
 export const getCategoryAndSubCategoryForHeader = async (req, res) => {
   try {
-    res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    res.set({
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      "Pragma": "no-cache",
+      "Expires": "0",
+      "Surrogate-Control": "no-store"   // <-- Render CDN bypass
+    });
     const categories = await Category.find().lean();
     // Fetch all subcategories once (fast)
     const allSubs = await SubCategory.find().lean();
