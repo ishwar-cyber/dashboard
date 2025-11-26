@@ -120,30 +120,37 @@ export const deleteById = async (req, res) => {
 }
 
 export const getCategoryAndSubCategoryForHeader = async (req, res) => {
+  try {
+    const categories = await Category.find().lean();
 
-    try {
-    const categories = await Category.find();
+    // Fetch all subcategories once (fast)
+    const allSubs = await SubCategory.find().lean();
 
-    // For each category, fetch its subcategories
-    const results = await Promise.all(categories.map(async (cat) => {
-      const subs = await SubCategory.find({ category: cat._id });
+    const results = categories.map(cat => {
+      const subs = allSubs
+        .filter(sub => sub.category.toString() === cat._id.toString())
+        .map(sub => ({
+          _id: sub._id,
+          name: sub.name,
+          slug: sub.slug
+        }));
+
       return {
         _id: cat._id,
         name: cat.name,
         slug: cat.slug,
-        subcategories: subs.map(sub => ({
-          _id: sub._id,
-          name: sub.name,
-          slug: sub.slug
-        }))
+        subcategories: subs
       };
-    }));
+    });
 
+    res.set('Cache-Control', 'no-store');
     res.json(results);
+
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 export const searchCategory = async (req, res) => {
     try {
