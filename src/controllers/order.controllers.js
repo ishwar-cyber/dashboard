@@ -70,7 +70,7 @@ export const createOrder = async (req, res) => {
       items,
       shippingAddress,
       paymentMethod,
-      finalAmount,
+      totalAmount: finalAmount,
       discountApplied: discount,
     });
     await order.save();
