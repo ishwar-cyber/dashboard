@@ -168,7 +168,7 @@ export const applyCoupon = async (req, res, next) => {
     }
     // Prevent negative total
     let finalTotal = Math.max(cartTotal - discountAmount, 0);
-
+    finalTotal = Math.round(finalTotal);
     // 6️⃣ Send response
     res.status(200).json({
       success: true,

@@ -61,8 +61,8 @@ const ImageSchema = new Schema({
 const VariantSchema = new Schema({
     name: { type: String, trim: true },
     sku: { type: String, trim: true },
-    price: { type: Number, min: 0 },
-    stock: { type: Number, min: 0, default: 0 },
+    price: { type: Number, min: 1, default: 1 },
+    stock: { type: String, default: 'in' },
     image: [ImageSchema]
 }, { _id: true });
 

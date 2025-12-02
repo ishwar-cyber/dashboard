@@ -8,7 +8,6 @@ import { getProducts, create } from "../services/product.service.js";
 export const createProduct = async(req, res, next)=>{
     try {
         const productData = {...req.body};
-        
         if(productData.price) productData.price = parseFloat(productData.price);
         if(productData.discount) productData.discount = parseFloat(productData.discount);
         // if(productData.stock) productData.stock = parseInt(productData.stock);
@@ -256,98 +255,6 @@ export const deleteProduct = async(req, res)=>{
         res.status(500).json({success: false, message: error.message})
     }
 }
-
-export const updateProductById1 = async (req, res) => {
-    try {
-        const productId = req.params.id;
-        const updates = req.body; // Assuming the product data is sent in the request body
-        
-        
-        // Find existing product
-        const existingProduct = await Product.findById(productId);
-        if (!existingProduct) {
-            return res.status(404).json({
-                success: false,
-                message: "Product not found",
-                errorCode: "PRODUCT_NOT_FOUND"
-            });
-        }
-
-        // Handle image update - Angular 18 will typically send files as FormData
-        if (req.file) {
-            // Check if the new image is different from existing
-            const isNewImage = req.file.originalname !== existingProduct.thumbnail?.name;
-            
-            if (isNewImage) {
-                try {
-                    // Upload new image
-                    const image = await uploadFile(req.file.path);
-                    updates.thumbnail = {
-                        url: image,
-                        name: req.file.originalname,
-                        size: req.file.size,
-                        lastModified: Date.now()
-                    };
-                    
-                    // Optionally: Delete old image from storage if needed
-                    // await deleteFile(existingProduct.thumbnail.url);
-                } catch (uploadError) {
-                    return res.status(500).json({
-                        success: false,
-                        message: "Failed to upload new image",
-                        errorCode: "IMAGE_UPLOAD_FAILED",
-                        error: uploadError.message
-                    });
-                }
-            }
-        } else {
-            // If no new image provided, maintain existing thumbnail data
-            // Angular might send a flag if image was removed
-            if (updates.removeThumbnail === 'true') {
-                updates.thumbnail = null;
-                // await deleteFile(existingProduct.thumbnail.url); // If you want to delete from storage
-            } else {
-                updates.thumbnail = existingProduct.thumbnail;
-            }
-        }
-
-        // Clean up updates object (remove Angular-specific flags)
-        delete updates.removeThumbnail;
-
-        // Update product
-        const updatedProduct = await Product.findByIdAndUpdate(
-            productId,
-            { $set: updates },
-            { new: true, runValidators: true }
-        );
-
-        res.status(200).json({
-            success: true,
-            message: "Product updated successfully",
-            data: updatedProduct,
-            changes: Object.keys(updates) // Send back which fields were updated
-        });
-
-    } catch (error) {
-        // Handle validation errors separately
-        if (error.name === 'ValidationError') {
-            return res.status(400).json({
-                success: false,
-                message: "Validation failed",
-                errorCode: "VALIDATION_ERROR",
-                errors: Object.values(error.errors).map(err => err.message)
-            });
-        }
-        
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            errorCode: "INTERNAL_SERVER_ERROR",
-            error: error.message
-        });
-    }
-};
-
 export const updateProductById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -382,7 +289,7 @@ export const updateProductById = async (req, res, next) => {
         name: variant.name,
         sku: variant.sku,
         price: parseFloat(variant.price) || 0,
-        stock: parseInt(variant.stock) || 0,
+        stock: variant.stock || 'in',
         image: Array.isArray(variant.image) && variant.image.length > 0
           ? variant.image[0] // ✅ FIXED: pick object, not array
           : variant.image || null,
@@ -427,3 +334,26 @@ export const uploadImages = async(req, res)=>{
         data: image,
     });
 }
+
+export const searchProducts = async (req, res) => {
+  try {
+    const q = req.query.q || "";
+
+    const products = await Product.find({
+      $or: [
+        { name: { $regex: q, $options: "i" } },
+        { description: { $regex: q, $options: "i" } },
+        { categoryName: { $regex: q, $options: "i" } },
+        { subcategoryName: { $regex: q, $options: "i" } }
+      ]
+    })
+      .limit(8)
+      .select("name slug images category subcategory");
+
+    res.json(products);
+
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+

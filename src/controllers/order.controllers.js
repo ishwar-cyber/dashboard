@@ -12,7 +12,7 @@ export const createOrder = async (req, res) => {
   try {
     const { userId, visitorId } = await getIds(req);
     const orderNumber = await generateOrderNumber();
-    const { items, shippingAddress, paymentMethod, totalAmount, couponCode } = req.body;
+    const { items, shippingAddress, paymentMethod, totalAmount, couponDiscount } = req.body;
     
     if (!userId && !visitorId) {
       return res.status(400).json({ success: false, message: "User or Visitor ID is required" });
@@ -52,17 +52,17 @@ export const createOrder = async (req, res) => {
       }
     }
     // 🎟 Apply coupon
-    let discount = 0;
-    if (couponCode) {
-      const coupon = await Coupon.findOne({ code: couponCode });
-      if (coupon) {
-        discount = coupon.type === "percentage" ? (totalAmount * coupon.value) / 100 : coupon.value;
-        coupon.usedCount += 1;
-        await coupon.save();
-      }
-    }
+    // let discount = 0;
+    // if (couponDiscount) {
+    //   const coupon = await Coupon.findOne({ code: couponCode });
+    //   if (coupon) {
+    //     discount = coupon.type === "percentage" ? (totalAmount * coupon.value) / 100 : coupon.value;
+    //     coupon.usedCount += 1;
+    //     await coupon.save();
+    //   }
+    // }
 
-    const finalAmount = totalAmount - discount;
+    // const finalAmount = totalAmount - couponDiscount;
     const order = new Order({
       orderNumber,
       user: userId || null,
@@ -70,39 +70,39 @@ export const createOrder = async (req, res) => {
       items,
       shippingAddress,
       paymentMethod,
-      totalAmount: finalAmount,
-      discountApplied: discount,
+      totalAmount: totalAmount - (couponDiscount || 0),
+      discountApplied: couponDiscount || 0,
     });
     await order.save();
     // ✅ Clear cart after order
        // Call Cashfree API
   const user = await User.findById(userId);
   const response = await axios.post(
-  `https://sandbox.cashfree.com/pg/orders`,
-  {
-    order_id: orderNumber,   // use your own order number here
-    order_amount: finalAmount,
-    order_currency: "INR",
-    customer_details: {
-      customer_id: userId || visitorId,
-      customer_name: shippingAddress?.fullName || "",
-      customer_email: shippingAddress?.email || "customerEmail@gmail.com",
-      customer_phone: shippingAddress?.phone || "9999999999",
-    },
-    order_meta: {
-      return_url: "http://application-shoppyness.vercel.app/payment-status?order_id={order_id}",
-      notify_url: "http://application-shoppyness.vercel.app/api/payment/webhook"
-    }
-  },
-  {
-    headers: {
-          "x-client-id": "TEST43174731bcc18792591b7b55e3747134",
-          "x-client-secret": "TEST9515edf6d8b1c6c1768721988ec4dcae903f6ed",
-          "x-api-version": "2025-01-01",
-          "Content-Type": "application/json",
-    },
-  }
-);
+    `https://sandbox.cashfree.com/pg/orders`,
+      {
+        order_id: orderNumber,   // use your own order number here
+        order_amount: totalAmount - (couponDiscount || 0),
+        order_currency: "INR",
+        customer_details: {
+          customer_id: userId || visitorId,
+          customer_name: shippingAddress?.fullName || "",
+          customer_email: shippingAddress?.email || "customerEmail@gmail.com",
+          customer_phone: shippingAddress?.phone || "9999999999",
+        },
+        order_meta: {
+          return_url: "http://localhost:4200/payment-status?order_id={order_id}",
+          notify_url: "http://localhost:8000/api/payment/webhook"
+        }
+      },
+      {
+        headers: {
+              "x-client-id": "TEST43174731bcc18792591b7b55e3747134",
+              "x-client-secret": "TEST9515edf6d8b1c6c1768721988ec4dcae903f6ed",
+              "x-api-version": "2025-01-01",
+              "Content-Type": "application/json",
+        },
+      }
+  );
 
     const cashfreeOrderId = response.data.order_id;
     order.cashfreeOrderId = cashfreeOrderId;
@@ -121,10 +121,6 @@ export const createOrder = async (req, res) => {
           { _id: item.product, "variants._id": item.variantId },
           { $inc: { "variants.$.stock": -item.quantity } }
         );
-      } else if (item.product.stock === 'in') {
-        // await Product.findByIdAndUpdate(item.product, { $set: { stock: 'out' } });
-      } else {
-        let findProduct = await Product.findByIdAndUpdate(item.product.id,{ $inc: { stock: -item.quantity }});
       }
     }
     await Cart.findOneAndDelete({ userId });
