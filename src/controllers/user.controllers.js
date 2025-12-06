@@ -78,8 +78,9 @@ export const addAddress = async (req, res, next) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
     
-    user.addresses.push(newAddress);
-
+    await user.addresses.push(newAddress);
+    console.log('addressess',user);
+    
     // If this is the first address, set default
     if (user.addresses.length === 1) {
       user.addresses[0].isDefault = true;
