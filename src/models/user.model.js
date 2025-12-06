@@ -9,7 +9,7 @@ const addressSchema = new mongoose.Schema({
   landmark: { type: String },
   state: { type: String, required: true },
   pincode: { type: String, required: true },
-  isDefault: { type: Boolean, default: false }
+  // isDefault: { type: Boolean, default: false }
 });
 
 const userSchema = new mongoose.Schema(
