@@ -74,13 +74,13 @@ export const updateAddress = async(req, res, next)=>{
 export const addAddress = async (req, res, next) => {
   try {
     const userId = req.params.id;
-    const newAddress = req.body.address;
+    const newAddress = req.body;
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
     
     await user.addresses.push(newAddress);
-    console.log('addressess',user);
-    
+
+
     // If this is the first address, set default
     // if (user.addresses.length === 1) {
     //   user.addresses[0].isDefault = true;
