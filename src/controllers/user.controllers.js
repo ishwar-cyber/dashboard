@@ -82,9 +82,9 @@ export const addAddress = async (req, res, next) => {
     console.log('addressess',user);
     
     // If this is the first address, set default
-    if (user.addresses.length === 1) {
-      user.addresses[0].isDefault = true;
-    }
+    // if (user.addresses.length === 1) {
+    //   user.addresses[0].isDefault = true;
+    // }
 
     
     await user.save();
