@@ -56,7 +56,7 @@ orderRouter.put('/:orderId', tokenVerify, role('admin'), updateOrderTracking);
  * @desc    Cancel order
  * @access  Private
  */
-orderRouter.put('/:orderId/cancel', tokenVerify, cancelOrder);
+orderRouter.put('/:orderId/cancelled', tokenVerify, cancelOrder);
 // orderRouter.get('/:userId/:orderId', tokenVerify, orderStatus);
 orderRouter.get('/:orderId/tracking', tokenVerify, getOrderTracking);
 export default orderRouter;

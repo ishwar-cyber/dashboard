@@ -35,19 +35,18 @@ const orderSchema = new mongoose.Schema({
   tracking: {
     type: [trackingStepSchema],
     default: [
-      { key: "created", label: "Order Placed", completed: true, completedAt: new Date() },
-      { key: "confirmed", label: "Confirmed", completed: false },
-      { key: "packed", label: "Packed", completed: false },
-      { key: "shipped", label: "Shipped", completed: false },
-      { key: "delivered", label: "Delivered", completed: false },
-      { key: "cancelled", label: "Cancelled", completed: false },
-      { key: "returned", label: "Returned", completed: false }
+      { key: 'placed', label: 'Order Placed', completed: true },
+      { key: 'confirmed', label: 'Confirmed', completed: false },
+      { key: 'shipped', label: 'Shipped', completed: false },
+      { key: 'delivered', label: 'Delivered', completed: false },
+      { key: 'cancelled', label: 'Cancelled', completed: false }
     ]
   },
   paymentMethod: { type: String, required: true },
   paymentStatus: { type: String, default: "pending" },
-  orderStatus: { type: String, default: "pending" }, // pending, processing, shipped, delivered
-  totalAmount: Number
+  orderStatus: { type: String, default: "placed" }, // pending, processing, shipped, delivered
+  cancelReason: { type: String},
+  totalAmount: { type: Number, required: true}
 }, { timestamps: true, toJSON: { virtuals: true } });
 
 export default mongoose.model("Order", orderSchema);

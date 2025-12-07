@@ -349,7 +349,7 @@ export const searchProducts = async (req, res) => {
     })
       .limit(8)
       .select("name slug images category subcategory");
-
+    products.stock = 'in';
     res.json(products);
 
   } catch (e) {

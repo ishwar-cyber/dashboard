@@ -378,58 +378,6 @@ export const getOrderByIdAdmin = async (req, res) => {
   }
 };
 
-export const updateOrderStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.query; // 👈 take from query param
-
-    if (!validateObjectId(id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Valid order ID is required'
-      });
-    }
-
-    if (!status) {
-      return res.status(400).json({
-        success: false,
-        message: 'Status is required'
-      });
-    }
-    const order = await Order.findById(id);
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order not found'
-      });
-    }
-
-    // ✅ Update status directly
-    order.orderStatus = status;
-    order.statusUpdatedAt = new Date();
-    await order.save();
-
-    res.json({
-      success: true,
-      message: 'Order status updated successfully',
-      data: {
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        status: order.orderStatus,
-        statusUpdatedAt: order.statusUpdatedAt
-      }
-    });
-
-  } catch (error) {
-    console.error('Update order status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update order status',
-      error: error.message
-    });
-  }
-};
-
 export const updateOrderTracking = async (req, res, next) => {
   try {
     const { orderId } = req.params;
@@ -438,13 +386,12 @@ export const updateOrderTracking = async (req, res, next) => {
     const order = await Order.findById(orderId);
     if (!order) return res.status(404).json({ message: "Order not found" });
     const step = order.tracking.filter(s => {
-      s.key === status
+      if(s.key === status){
+        s.completed = true;
+        s.completedAt = new Date();
+      }
     });
     if (!step) return res.status(400).json({ message: "Invalid status" });
-    // Mark current step as completed
-    step.completed = true;
-    step.completedAt = new Date();
-    // Update global order status
     order.orderStatus = status;
     await order.save();
 
@@ -464,33 +411,36 @@ export const cancelOrder = async (req, res) => {
     try {
         const { orderId } = req.params;
         const { reason } = req.body;
-        const userId = req.user._id;
-
-        if (!validateObjectId(orderId)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Valid order ID is required'
-            });
-        }
-
-        const order = await Order.findById(orderId);
+        const userId = await getIds(req);
+        console.log('order id', orderId);
+        
+        const order = await Order.findOne({
+          orderNumber: orderId,
+          user: userId.userId
+        });
         if (!order) {
             return res.status(404).json({
                 success: false,
                 message: 'Order not found'
             });
         }
-
         // Check if user can cancel this order
-        if (order.user.toString() !== userId.toString()) {
+        if (order.user.toString() !== userId.userId.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'Access denied'
             });
         }
 
+        console.log('order status', order.orderStatus);
+        if(orderStatus === 'cancelled'){
+             return res.status(400).json({
+                success: false,
+                message: 'Order alredy cancelled'
+            });
+        }
         // Check if order can be cancelled
-        const cancellableStatuses = ['pending', 'confirmed'];
+        const cancellableStatuses = ['placed', 'confirmed'];
         if (!cancellableStatuses.includes(order.orderStatus)) {
             return res.status(400).json({
                 success: false,
@@ -498,17 +448,18 @@ export const cancelOrder = async (req, res) => {
             });
         }
 
-        // Restore product stock
-        for (const item of order.orderItems) {
-            const product = await Product.findById(item.product);
-            if (product) {
-                product.stock += item.quantity;
-                await product.save();
-            }
-        }
-
-        // Update order status
-        order.updateStatus('cancelled', reason || 'Cancelled by customer');
+        const step = order.tracking.filter(s => {
+          if( s.key === 'cancelled'){
+            s.completed = true;
+            s.completedAt = new Date();
+          }
+        });
+        if (!step) return res.status(400).json({ message: "Invalid status" });
+        
+        order.orderStatus = 'cancelled';
+        order.cancelReason = reason;
+        console.log('order table', order);
+      
         await order.save();
 
         res.json({
@@ -517,7 +468,8 @@ export const cancelOrder = async (req, res) => {
             data: {
                 orderId: order._id,
                 orderNumber: order.orderNumber,
-                status: order.orderStatus
+                status: order.orderStatus,
+                tracking: order.tracking,
             }
         });
 
@@ -530,6 +482,7 @@ export const cancelOrder = async (req, res) => {
         });
     }
 };
+
 
 /**
  * @desc    Get user orders
