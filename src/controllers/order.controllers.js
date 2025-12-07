@@ -73,7 +73,7 @@ export const createOrder = async (req, res) => {
       totalAmount: totalAmount - (couponDiscount || 0),
       discountApplied: couponDiscount || 0,
     });
-    await order.save();
+    // await order.save();
     // ✅ Clear cart after order
        // Call Cashfree API
   const user = await User.findById(userId);
@@ -90,8 +90,8 @@ export const createOrder = async (req, res) => {
           customer_phone: shippingAddress?.phone || "9999999999",
         },
         order_meta: {
-          return_url: "http://localhost:4200/payment-status?order_id={order_id}",
-          notify_url: "http://localhost:8000/api/payment/webhook"
+          return_url: "https://application-shoppyness.vercel.app/payment-status?order_id={order_id}",
+          notify_url: "https://shoppyness-backend.onrender.com/api/v1/payment/webhook"
         }
       },
       {
@@ -103,13 +103,12 @@ export const createOrder = async (req, res) => {
         },
       }
   );
-
     const cashfreeOrderId = response.data.order_id;
     order.cashfreeOrderId = cashfreeOrderId;
     await order.save();
 
     const paymentLink = response.data.payments?.url;
-    const paymentSessionId = response.data.payment_session_id;
+    const payment_session_id = response.data.payment_session_id;
 
     // Update DB with payment link
     order.paymentLink = paymentLink;
@@ -118,13 +117,13 @@ export const createOrder = async (req, res) => {
     for (let item of items) {
       if (item.variantId) {
         await Product.updateOne(
-          { _id: item.product, "variants._id": item.variantId },
-          { $inc: { "variants.$.stock": -item.quantity } }
+          { id: item.product, "variants.id": item.variantId },
+          // { $inc: { "variants.$.stock": -item.quantity } }
         );
       }
     }
     await Cart.findOneAndDelete({ userId });
-    res.json({ success: true, paymentLink, paymentSessionId, orderNumber });
+    res.json({ success: true, paymentLink, payment_session_id, orderNumber });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Order creation failed", error: err.message });
