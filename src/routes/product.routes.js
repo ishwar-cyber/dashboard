@@ -3,6 +3,7 @@ import {
   createProduct, 
   searchProduct,
   getProductByCategoryId, 
+  getProductBySubCategorySlug,
   getAllProducts, 
   updateProductById, 
   getProductById, 
@@ -24,6 +25,7 @@ productRouter.get('/:slug/related', findRelatedProducts);
 productRouter.get('/category/:slug', getProductByCategoryId);
 productRouter.get('/filter', filterProducts);
 productRouter.get('/:slug', getProductById);
+productRouter.get('/category/:catSlug/:subSlug', getProductBySubCategorySlug);
 
 // Admin Routes
 productRouter.post('/', 

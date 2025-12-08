@@ -4,7 +4,7 @@ import Brand from "../models/brand.model.js";
 import Pincode from '../models/service_pincode.model.js';
 import SubCategory from '../models/sub_category.model.js';
 import { uploadFile ,uploadFiles} from "../utilities/cloudnary.js";
-import { getProducts, create } from "../services/product.service.js";
+import { create } from "../services/product.service.js";
 export const createProduct = async(req, res, next)=>{
     try {
         const productData = {...req.body};
@@ -53,7 +53,7 @@ export const getAllProducts = async (req, res) => {
       filter.name = { $regex: search, $options: 'i' };
     }
     filter.status = true;
-    filter.stock = 'in';
+    // filter.stock = 'in';
      const products = await Product.find(filter)
       .populate('category', 'name slug')
       .populate('subCategory', 'name slug')
@@ -243,6 +243,37 @@ export const getProductByCategoryId = async (req, res) => {
     }
 };
 
+export const getProductBySubCategorySlug = async(req, res)=>{
+   try {
+        const slug = req.params.subSlug;
+
+        // Find category by slug
+        const subCategory = await SubCategory.findOne({ slug }).lean();
+        if (!subCategory) {
+            return res.status(404).json({
+                success: false,
+                message: 'Sub Category not found'
+            });
+        }
+
+        // Find products linked to this category
+        const products = await Product.find({
+            subCategory: subCategory._id
+        }).lean();
+
+        res.status(200).json({
+            success: true,
+            count: products.length,
+            data: products
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+}
 export const deleteProduct = async(req, res)=>{
     try {
         let id = req.params.id;
