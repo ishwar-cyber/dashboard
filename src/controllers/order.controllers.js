@@ -70,7 +70,7 @@ export const createOrder = async (req, res) => {
       items,
       shippingAddress,
       paymentMethod,
-      totalAmount: totalAmount - (couponDiscount || 0),
+      totalAmount: totalAmount,
       discountApplied: couponDiscount || 0,
     });
     // await order.save();
@@ -81,7 +81,7 @@ export const createOrder = async (req, res) => {
     `https://sandbox.cashfree.com/pg/orders`,
       {
         order_id: orderNumber,   // use your own order number here
-        order_amount: totalAmount - (couponDiscount || 0),
+        order_amount: totalAmount,
         order_currency: "INR",
         customer_details: {
           customer_id: userId || visitorId,

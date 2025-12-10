@@ -34,6 +34,10 @@ const CartItemSchema = new Schema({
     },
     variantId: {
         type: Schema.Types.ObjectId,
+    },
+    shippingCharges:{
+        type: Number,
+        default: 100
     }
 }, { 
     timestamps: true,
