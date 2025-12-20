@@ -103,8 +103,7 @@ export const createOrder = async (req, res) => {
         },
       }
   );
-    const cashfreeOrderId = response.data.order_id;
-    order.cashfreeOrderId = cashfreeOrderId;
+    order.cashfreeOrderId = response.data.cf_order_id;
     await order.save();
 
     const paymentLink = response.data.payments?.url;
@@ -385,26 +384,39 @@ export const updateOrderTracking = async (req, res, next) => {
 
     const order = await Order.findById(orderId);
     if (!order) return res.status(404).json({ message: "Order not found" });
-    const step = order.tracking.filter(s => {
-      if(s.key === status){
-        s.completed = true;
-        s.completedAt = new Date();
+
+    const tracking = order.tracking;
+    const statusIndex = tracking.findIndex(step => step.key === status);
+
+    if (statusIndex === -1) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    // 1️⃣ Auto-complete all PREVIOUS steps
+    for (let i = 0; i <= statusIndex; i++) {
+      if (!tracking[i].completed) {
+        tracking[i].completed = true;
+        tracking[i].completedAt = new Date();
       }
-    });
-    if (!step) return res.status(400).json({ message: "Invalid status" });
+    }
+
+    // 2️⃣ Update main order status
     order.orderStatus = status;
+    // 3️⃣ Save order
     await order.save();
 
-    res.json({
+    return res.json({
       success: true,
-      orderStatus: order.orderStatus,
       message: `Order updated to ${status}`,
+      orderStatus: order.orderStatus,
       tracking: order.tracking
     });
+
   } catch (error) {
     next(error);
   }
 };
+
 
 
 export const cancelOrder = async (req, res) => {
@@ -635,3 +647,117 @@ export const getOrderTracking = async (req, res, next) => {
     next(error);
   }
 };
+
+export const refundOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { amount, reason } = req.body;
+    // console.log('amount', amount);
+    
+    const refundAmount = Number(amount);
+    if (!refundAmount || refundAmount <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid refund amount" });
+    }
+
+    // Get order
+   const order = await Order.findOne({ orderNumber: orderId });
+    // console.log('orderrrr', order);
+    
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // Only cancelled orders can be refunded
+    if (order.orderStatus !== "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Only cancelled orders can be refunded"
+      });
+    }
+
+    // Check refund amount does not exceed total
+    if (refundAmount > order.totalAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Refund cannot exceed total order value ₹${order.totalAmount}`
+      });
+    }
+
+    // Validate based on item price
+    const itemTotal = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+    if (refundAmount > itemTotal) {
+      return res.status(400).json({
+        success: false,
+        message: `Refund cannot exceed item total price ₹${itemTotal}`
+      });
+    }
+
+    // Must have cashfreeOrderId stored earlier
+    // if (!order.cashfreeOrderId) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Cashfree order not found for this order"
+    //   });
+    // }
+
+    // Generate unique refund ID
+    const refundId = `refund_${order.orderNumber}_${Date.now()}`;
+
+    // Cashfree refund API URL
+    const cashfreeURL = `${process.env.CASHFREE_BASE_URL}/orders/${order.orderNumber}/refunds`;
+
+    const payload = {
+      refund_amount: 100,
+      refund_id: 'refund_00912',
+      refund_note: 'refund note for reference',
+      refund_speed: 'STANDARD'
+    };
+
+    const headers = {
+      "x-client-id": process.env.CASHFREE_APP_ID,
+      "x-client-secret": process.env.CASHFREE_SECRET_KEY,
+      "x-api-version":  process.env.CASHFREE_API_VERSION,
+      "Content-Type": "application/json"
+    };
+    // console.log('ashfreeURL, payload, { headers }', cashfreeURL, payload, { headers });
+    
+    const response = await axios.post(cashfreeURL, payload, { headers });
+    console.log('refund response', response.data)
+    if (!response.data || response.data.status !== "SUCCESS") {
+      return res.status(400).json({
+        success: false,
+        message: "Cashfree refund failed",
+        data: response.data
+      });
+    }
+
+    // Save refund info in order
+    order.refund = {
+      amount: refundAmount,
+      reason: reason || "Refund processed",
+      refundedAt: new Date(),
+      cashfreeRefundId: refundId
+    };
+    order.paymentStatus = "refunded";
+
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: `Refund ₹${refundAmount} processed successfully`,
+      refund: order.refund,
+      cashfree: response.data
+    });
+
+  } catch (error) {
+    console.error("Refund Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Refund failed",
+      error: error.message
+    });
+  }
+};
+
+

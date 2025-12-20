@@ -42,11 +42,20 @@ const orderSchema = new mongoose.Schema({
       { key: 'cancelled', label: 'Cancelled', completed: false }
     ]
   },
+  cashfreeOrderId: {type: String, required: true},
   paymentMethod: { type: String, required: true },
   paymentStatus: { type: String, default: "pending" },
-  orderStatus: { type: String, default: "placed" }, // pending, processing, shipped, delivered
-  cancelReason: { type: String},
-  totalAmount: { type: Number, required: true}
+  orderStatus: { type: String, default: "placed" },
+  cancelReason: { type: String },
+  totalAmount: { type: Number, required: true },
+  // NEW FIELD
+  refund: {
+    amount: { type: Number, default: 0 },
+    reason: { type: String, default: "" },
+    refundedAt: { type: Date, default: null },
+    cashfreeRefundId: { type: String, default: null }
+  }
+
 }, { timestamps: true, toJSON: { virtuals: true } });
 
 export default mongoose.model("Order", orderSchema);

@@ -9,7 +9,8 @@ import {
     orderStatus,
     getOrderTracking,
     getOrderByIdAdmin,
-    getOrderByOrderNumber
+    getOrderByOrderNumber,
+    refundOrder
 } from '../controllers/order.controllers.js';
 import { tokenVerify, role } from '../middleware/auth.middlerwares.js';
 
@@ -59,4 +60,5 @@ orderRouter.put('/:orderId', tokenVerify, role('admin'), updateOrderTracking);
 orderRouter.put('/:orderId/cancelled', tokenVerify, cancelOrder);
 // orderRouter.get('/:userId/:orderId', tokenVerify, orderStatus);
 orderRouter.get('/:orderId/tracking', tokenVerify, getOrderTracking);
+orderRouter.post("/:orderId/refund", refundOrder);
 export default orderRouter;
