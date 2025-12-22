@@ -1,5 +1,7 @@
 import { uploadFile,deleteFile } from '../utilities/cloudnary.js';
-import { createSubCategory, updateSubCategoryById,getSubCategoryByIdOrSlug,getSubCategoryByIdService, deleteSubCategory,getAllSubCategories } from '../services/subCategory.service.js';
+import { createSubCategory, updateSubCategoryById,getSubCategoryByIdOrSlug,
+    getSubCategoryByIdService, deleteSubCategory,getAllSubCategories, getSubCategoriesByCategoriesService
+} from '../services/subCategory.service.js';
 export const create = async (req, res) => {
     try {
         const subCategoryData = {...req.body};
@@ -121,3 +123,21 @@ export const deleteById = async (req, res) => {
         });
     }
 }
+
+export const getSubCategoriesByCategories = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const subCategory = await getSubCategoriesByCategoriesService(id);
+    res.status(200).json({
+      success: true,
+      data: subCategory
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to load sub categories'
+    });
+  }
+};
