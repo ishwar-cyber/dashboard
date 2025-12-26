@@ -145,3 +145,25 @@ export const deleteSubCategory = async (id) => {
     console.log(`Error deleting subCategory: ${error.message}`);
   }
 };
+
+export const getSubCategoriesByCategoriesService = async (id) => {
+  try {
+    const subCategories = await SubCategory.find({
+      category: id,
+      isActive: true
+    })
+    .select('_id name category') // 👈 include _id explicitly
+    .sort({ name: 1 })
+    .lean(); // 👈 return plain JS objects (recommended)
+
+    if (!subCategories.length) {
+      return []; // empty array is valid for dropdown
+    }
+
+    return subCategories;
+
+  } catch (error) {
+    console.error(`Error fetching subCategories: ${error.message}`);
+    throw error;
+  }
+};
