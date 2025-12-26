@@ -46,7 +46,8 @@ export const addToCart = async (req, res) => {
       }
 
       stock = variant.stock;
-      if (stock < quantity) {
+
+      if (stock !== 'in') {
         return res.status(400).json({ success: false, message: "Not enough stock for this variant" });
       }
 

@@ -12,10 +12,10 @@ const CartItemSchema = new Schema({
         required: true,
         trim: true
     },
-    image: {
+    image: [{
         type: String,
         trim: true
-    },
+    }],
     price: {
         type: Number,
         required: true,
