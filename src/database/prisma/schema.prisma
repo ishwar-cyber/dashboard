@@ -1,0 +1,421 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+/ =======================================
+// ENUMS
+// =======================================
+enum Role {
+  USER
+  ADMIN
+}
+
+// =======================================
+// USERS & ADDRESSES
+// =======================================
+model User {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  phone     String?
+  username  String
+  password  String
+  role      Role      @default(USER)
+
+  addresses Address[]
+  orders    Order[]
+  carts     Cart[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Address {
+  id        Int      @id @default(autoincrement())
+  fullName  String
+  phone     String
+  line1     String
+  line2     String?
+  city      String
+  landmark  String?
+  state     String
+  pincode   String
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// =======================================
+// BRAND
+// =======================================
+model Brand {
+  id              Int          @id @default(autoincrement())
+  name            String       @unique
+  slug            String       @unique
+  isActive        Boolean      @default(true)
+
+  metaTitle       String?
+  metaDescription String?
+
+  image           BrandImage?
+  products        Product[]
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model BrandImage {
+  id        Int     @id @default(autoincrement())
+  url       String?
+  publicId  String?
+  brandId   Int     @unique
+  brand     Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+}
+
+// =======================================
+// CATEGORY & SUBCATEGORY
+// =======================================
+model Category {
+  id              Int           @id @default(autoincrement())
+  name            String
+  slug            String        @unique
+  isActive        Boolean       @default(true)
+
+  metaTitle       String?
+  metaDescription String?
+
+  image           CategoryImage?
+  subCategories   SubCategory[]
+  products        Product[]
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model CategoryImage {
+  id         Int      @id @default(autoincrement())
+  url        String?
+  publicId   String?
+  categoryId Int      @unique
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+
+model SubCategory {
+  id              Int              @id @default(autoincrement())
+  name            String
+  slug            String           @unique
+  serviceCharges  Float            @default(0)
+  isActive        Boolean          @default(true)
+
+  metaTitle       String?
+  metaDescription String?
+
+  categoryId      Int
+  category        Category         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  image           SubCategoryImage?
+  products        Product[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model SubCategoryImage {
+  id             Int          @id @default(autoincrement())
+  url            String?
+  publicId       String?
+  subCategoryId  Int          @unique
+  subCategory    SubCategory  @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
+}
+
+// =======================================
+// PRODUCT
+// =======================================
+model Product {
+  id              Int       @id @default(autoincrement())
+  name            String
+  slug            String    @unique
+  description     String
+  price           Float
+  discount        Int       @default(0)
+  sku             String?   @unique
+  stock           Int
+  rating          Float     @default(0)
+
+  featured        Boolean   @default(false)
+  bestSeller      Boolean   @default(false)
+  status          Boolean   @default(true)
+
+  serviceCharges  Float     @default(0)
+
+  weight          Float
+  length          Float
+  width           Float
+  height          Float
+
+  categoryId      Int
+  subCategoryId   Int
+  brandId         Int
+
+  category        Category     @relation(fields: [categoryId], references: [id])
+  subCategory     SubCategory  @relation(fields: [subCategoryId], references: [id])
+  brand           Brand        @relation(fields: [brandId], references: [id])
+
+  images          ProductImage[]
+  variants        ProductVariant[]
+  specifications  ProductSpecification[]
+  offerPrices     ProductOfferPrice[]
+  antivirusKeys   ProductAntivirusKey[]
+  warranties      ProductWarranty[]
+  pincodes        ProductPincode[]
+  tags            ProductTag[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model ProductImage {
+  id        Int     @id @default(autoincrement())
+  url       String
+  publicId  String?
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  name      String?
+  sku       String?
+  price     Float   @default(1)
+  stock     String  @default("in")
+
+  images    ProductVariantImage[]
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductVariantImage {
+  id        Int     @id @default(autoincrement())
+  url       String?
+  publicId  String?
+  variantId Int
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+}
+
+model ProductSpecification {
+  id        Int     @id @default(autoincrement())
+  name      String?
+  value     String?
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductOfferPrice {
+  id        Int     @id @default(autoincrement())
+  quantity  Int?
+  price     Float?
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductAntivirusKey {
+  id         Int      @id @default(autoincrement())
+  licenseKey String?
+  status     String   @default("available")
+  soldTo     String?
+  soldAt     DateTime?
+  productId  Int
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductWarranty {
+  id        Int     @id @default(autoincrement())
+  period    Int?
+  type      String?
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductPincode {
+  id        Int     @id @default(autoincrement())
+  pincode   String
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductTag {
+  id        Int     @id @default(autoincrement())
+  tag       String
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// =======================================
+// CART
+// =======================================
+model Cart {
+  id         Int       @id @default(autoincrement())
+  userId     Int?
+  visitorId  String?
+  isActive   Boolean   @default(true)
+  expiresAt  DateTime?
+
+  items      CartItem[]
+
+  user       User?     @relation(fields: [userId], references: [id])
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model CartItem {
+  id              Int      @id @default(autoincrement())
+  cartId          Int
+  productId       Int
+  variantId       Int?
+  name            String
+
+  price           Float
+  discount        Int      @default(0)
+  quantity        Int
+  shippingCharges Float    @default(100)
+
+  images          CartItemImage[]
+
+  cart            Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model CartItemImage {
+  id         Int      @id @default(autoincrement())
+  url        String
+  cartItemId Int
+  cartItem   CartItem @relation(fields: [cartItemId], references: [id], onDelete: Cascade)
+}
+
+// =======================================
+// COUPON
+// =======================================
+model Coupon {
+  id           Int       @id @default(autoincrement())
+  code         String    @unique
+  discount     Float
+  discountType String    @default("percentage")
+  applyTo      String?
+  startDate    DateTime
+  expiryDate   DateTime?
+  noExpiry     Boolean   @default(false)
+
+  products     CouponProduct[]
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model CouponProduct {
+  id        Int     @id @default(autoincrement())
+  couponId  Int
+  productId Int
+
+  coupon    Coupon  @relation(fields: [couponId], references: [id], onDelete: Cascade)
+}
+
+// =======================================
+// PINCODE
+// =======================================
+model Pincode {
+  id        Int      @id @default(autoincrement())
+  pincode   String   @unique
+  status    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =======================================
+// ORDER
+// =======================================
+model Order {
+  id              Int           @id @default(autoincrement())
+  userId          Int
+  orderNumber     String        @unique
+
+  paymentMethod   String
+  paymentStatus   String        @default("pending")
+  orderStatus     String        @default("placed")
+
+  cashfreeOrderId String
+  totalAmount     Float
+
+  cancelReason    String?
+
+  items           OrderItem[]
+  address         OrderAddress?
+  tracking        OrderTracking[]
+  refund          OrderRefund?
+
+  user            User          @relation(fields: [userId], references: [id])
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  name      String?
+  price     Float?
+  quantity  Int?
+  image     String?
+
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model OrderAddress {
+  id        Int     @id @default(autoincrement())
+  orderId   Int     @unique
+
+  fullName  String?
+  phone     String?
+  line1     String?
+  line2     String?
+  landmark  String?
+  city      String?
+  state     String?
+  pincode   String?
+  country   String?
+
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model OrderTracking {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  stepKey     String
+  label       String
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model OrderRefund {
+  id               Int      @id @default(autoincrement())
+  orderId          Int      @unique
+  amount           Float    @default(0)
+  reason           String?
+  refundedAt       DateTime?
+  cashfreeRefundId String?
+
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
