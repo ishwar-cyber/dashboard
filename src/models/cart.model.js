@@ -92,8 +92,11 @@ cartSchema.virtual('subTotal').get(function() {
 // });
 
 // // Virtual for total price of each item
-CartItemSchema.virtual('total').get(function() {
-    return this.subTotal;
+cartSchema.virtual('total').get(function() {
+   return this.items.reduce((total, item) => {
+        const discountedPrice = item.price * (1 - (item.discount || 0) / 100);
+        return total + (discountedPrice * item.quantity) + item.shippingCharges;
+    }, 0);
 });
 
 // JSON transformation

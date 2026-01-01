@@ -12,7 +12,9 @@ export const calculatedCart = async(cart) => {
         if(calculateCart.items && calculateCart.items.length > 0){
             calculateCart.items = calculateCart.items.map(item =>{              
                 const discountedPrice = item.price * (1-(item.discount || 0) / 100);
-                subTotal += (item.price * item.quantity);
+                subTotal += (item.price * item.quantity); // Including a flat shipping of 100 per item
+                total += (discountedPrice * item.quantity) + 100;
+                itemCount += item.quantity;
                 const itemDiscount = item.price * ((item.discount || 0) / 100) * item.quantity;
                 totalDiscount += itemDiscount;
                 return {
