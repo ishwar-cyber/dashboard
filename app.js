@@ -7,6 +7,7 @@ import userRouter from "./src/routes/user.routes.js";
 import authRouter from "./src/routes/auth.routes.js";
 import productRouter from "./src/routes/product.routes.js";
 import connectToDatabse from "./src/database/mongodb.js";
+import {connectToPostgre} from "./src/database/db.connect.js";
 import errorHandling from "./src/middleware/error.middleware.js";
 import brandRouter from "./src/routes/brand.routers.js";
 import categoryRouter from "./src/routes/category.routers.js";
@@ -77,6 +78,9 @@ app.use(errorHandling);
 app.listen(PORT,async()=>{
     console.log(`shoppyness api working http://localhost:${PORT}`);
    await connectToDatabse();
+   console.log("mongodb connected");
+   await connectToPostgre();
+   console.log("postreSQl connected");
 })
 
 export default app
