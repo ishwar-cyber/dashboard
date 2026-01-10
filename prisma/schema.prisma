@@ -233,7 +233,7 @@ model ProductVariant {
   name      String?
   sku       String?
   price     Float   @default(1)
-  stock     String  @default("in")
+  stock     Int     @default(1)
 
   productId Int
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
