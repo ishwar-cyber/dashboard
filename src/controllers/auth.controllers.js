@@ -1,9 +1,10 @@
-import User from "../models/user.model.js";
+// Using Prisma for user operations instead of Mongoose
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import AppError from "../utilities/appError.js";
-import Cart from "../models/cart.model.js"
+// Cart model handled via Prisma
 import { JWT_EXP_IN, JWT_SECRET } from "../../config/env.js";
+import prisma from "../config/prisma.js";
 
 export const signUp = async (req, res, next) => {
     try {
@@ -11,7 +12,7 @@ export const signUp = async (req, res, next) => {
         const { email,phone, username, password, confirmPassword, isRole } = req.body;
 
         // Checking if a user already exists
-        const existingUser = await User.findOne({ email });
+        const existingUser = await prisma.user.findUnique({where: {email}});
 
         if (existingUser) {
             const error = new Error('User already exists');
@@ -24,12 +25,19 @@ export const signUp = async (req, res, next) => {
         const hashPassword = await bcrypt.hash(password, salt);
 
         // Create User
-        const newUser = new User({ email, username, phone, confirmPassword, password: hashPassword, isRole })
-        await newUser.save();
+        const newUser = await prisma.user.create({
+            data: {
+                email,
+                username,
+                password: hashPassword,
+                phone: phone ? String(phone) : undefined,
+                role: isRole === 'admin' ? 'ADMIN' : 'USER'
+            }
+        });
         newUser.password = undefined;
         // Generate JWT Token
-        const token = jwt.sign({ userId: newUser._id }, JWT_SECRET, { expiresIn: JWT_EXP_IN });
-
+        const token = jwt.sign({ userId: newUser.id }, JWT_SECRET, { expiresIn: JWT_EXP_IN });
+        
         res.status(200).json({
             message: 'User created successfully',
             success: true,
@@ -47,7 +55,7 @@ export const signIn = async(req, res, next)=>{
 
         const {username, password} = req.body;
 
-        const user = await User.findOne({username});
+        const user = await prisma.user.findFirst({where: {username}});
         if(!user){
             const error = new Error('User not found');
             error.statusCode = 404;
@@ -59,18 +67,18 @@ export const signIn = async(req, res, next)=>{
             error.statusCode = 404;
             throw error;
         }
-        const token = jwt.sign({userId: user._id},JWT_SECRET,{expiresIn: JWT_EXP_IN});
+        const token = jwt.sign({userId: user.id},JWT_SECRET,{expiresIn: JWT_EXP_IN});
 
         res.status(200).json({
             success: true,
             message: 'User signed in successfully',
             token,
             user:{
-                _id: user._id,
+                _id: user.id,
                 email: user.email,
                 username: user.username,
                 name: user.name,
-                role: user.isRole,
+                role: user.role,
             }
         });
     } catch (error) {
@@ -85,7 +93,7 @@ export const signOut = async(req, res, next)=>{
 export const userSignIn = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const user = await prisma.user.findUnique({where: {email}});
     if (!user) {
       return next(new AppError("User not found, please register", 404));
     }
@@ -95,7 +103,7 @@ export const userSignIn = async (req, res, next) => {
       return next(new AppError("Password is not valid", 401));
     }
 
-    const token = jwt.sign({ userId: user._id }, JWT_SECRET, {
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
       expiresIn: JWT_EXP_IN,
     });
 
@@ -106,7 +114,7 @@ export const userSignIn = async (req, res, next) => {
     //   sameSite: "strict",
     //   maxAge: 7 * 24 * 60 * 60 * 1000,
     // });
-    await mergeCartAfterLogin(user._id, req.cookies.visitorId);
+    await mergeCartAfterLogin(user.id, req.cookies.visitorId);
 
     res.clearCookie("visitorId");
     res.status(200).json({
@@ -114,11 +122,11 @@ export const userSignIn = async (req, res, next) => {
       message: "User signed in successfully",
       token,
       user: {
-        _id: user._id,
+        _id: user.id,
         email: user.email,
         username: user.username,
         name: user.name,
-        role: user.isRole,
+        role: user.role,
       },
     });
   } catch (error) {
@@ -129,36 +137,36 @@ export const userSignIn = async (req, res, next) => {
 const mergeCartAfterLogin = async (userId, visitorId) => {
   if (!visitorId) return;
 
-  const visitorCart = await Cart.findOne({ visitorId });
+  const visitorCart = await prisma.cart.findFirst({ where: { visitorId, isActive: true }, include: { items: { include: { images: true } } } });
   if (!visitorCart) return;
 
-  let userCart = await Cart.findOne({ userId });
+  let userCart = await prisma.cart.findFirst({ where: { userId, isActive: true }, include: { items: { include: { images: true } } } });
   if (!userCart) {
     // no cart → just assign visitor cart to user
-    visitorCart.userId = userId;
-    visitorCart.visitorId = undefined;
-    await visitorCart.save();
+    await prisma.cart.update({where: {id: visitorCart.id}, data: {userId, visitorId: null}});
     return;
   }
 
   // merge carts
   for (const vItem of visitorCart.items) {
     const existing = userCart.items.find(
-      (uItem) => uItem.product.toString() === vItem.product.toString()
+      (uItem) => uItem.productId === vItem.productId
     );
     if (existing) {
-      existing.quantity += vItem.quantity;
+      await prisma.cartItem.update({where: {id: existing.id}, data: {quantity: existing.quantity + vItem.quantity}});
     } else {
-      userCart.items.push({
-        product: vItem.product,
-        name: vItem.name,
-        price: vItem.price,
-        quantity: vItem.quantity,
-        image: vItem.image,
-      });
+        await prisma.cartItem.create({
+          data: {
+            cartId: userCart.id,
+            productId: vItem.productId,
+            name: vItem.name,
+            price: vItem.price,
+            quantity: vItem.quantity,
+            images: { create: vItem.images ? vItem.images.map((img) => ({ url: img.url || img })) : [] },
+          },
+        });
     }
   }
 
-  await userCart.save();
-  await Cart.deleteOne({ visitorId });
+  await prisma.cart.delete({where: {id: visitorCart.id}});
 };

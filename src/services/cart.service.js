@@ -1,242 +1,210 @@
-import errorHandler from '../middleware/error.middleware.js';
-import Cart from '../models/cart.model.js';
-import Product from '../models/product.model.js';
-export const getOrCreateCart = async (userId) =>{
-    try {
-        
-        let cart = await Cart.findOne({userId: userId, isActive: true}).populate({
-            path: 'items.product',
-            select: 'name price image'
-        });
-        if(!cart){
-            cart = new Cart({
-                userId: userId,
-                items:[]
-            })
-            await cart.save();
-        }
-        return cart;
-    } catch (error) {
-        throw new Error(`Error getting cart: ${error.message}`);
+import prisma from '../config/prisma.js';
+export const getOrCreateCart = async (userId) => {
+  try {
+    const uid = Number(userId);
+    let cart = await prisma.cart.findFirst({
+      where: { userId: uid, isActive: true },
+      include: { items: { include: { images: true, product: true } } },
+    });
+    if (!cart) {
+      cart = await prisma.cart.create({ data: { userId: uid } , include: { items: { include: { images: true, product: true } } } });
     }
+    return cart;
+  } catch (error) {
+    throw new Error(`Error getting cart: ${error.message}`);
+  }
 };
 export const getCartByVisitorId = async (visitorId) => {
-    try {
-        let cart = await Cart.findOne({visitorId, isActive: true}).populate({
-            path: 'items.product',
-            select: 'name price stock images'
-        });
-        if(!cart){
-            cart = new Cart({
-                visitorId,
-                items:[]
-            })
-            await cart.save();
-        } 
-        return cart;
-    } catch (error) {
-        throw new Error(`Error getting cart: ${error.message}`);
+  try {
+    let cart = await prisma.cart.findFirst({
+      where: { visitorId, isActive: true },
+      include: { items: { include: { images: true, product: true } } },
+    });
+    if (!cart) {
+      cart = await prisma.cart.create({ data: { visitorId } , include: { items: { include: { images: true, product: true } } } });
     }
-}
+    return cart;
+  } catch (error) {
+    throw new Error(`Error getting cart: ${error.message}`);
+  }
+};
 
 export const addItemToCart = async (userId, item, visitorId) => {
-  try {
-    // ✅ Get cart (user or visitor)
+  console.log('item', item);
+  return prisma.$transaction(async (tx) => {
     const cart = userId
       ? await getOrCreateCart(userId)
       : await getCartByVisitorId(visitorId);
 
-    if (!cart) {
-      throw new Error("Cart not found");
-    }
-    // ✅ Fetch product (with variants)
-    const product = await Product.findById(item.product);
-    if (!product) {
-      throw new Error("Product not found");
-    }
+    if (!cart) throw new Error("Cart not found");
 
-    // ✅ Determine stock
-    let stock = product.stock;
+    const productId = Number(item.productId || item.product);
+    const variantId = item.variantId ? Number(item.variantId) : null;
+    const qty = Number(item.quantity) || 1;
+    console.log('product', productId, variantId,qty);
+    
+    // 🔹 Fetch only what is needed
+    const product = await tx.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        stock: true,
+        variants: variantId
+          ? {
+              where: { id: variantId },
+              select: { id: true, name: true, price: true, stock: true }
+            }
+          : false
+      }
+    });
+
+    if (!product) throw new Error("Product not found");
+
+    let availableStock = product.stock;
     let variant = null;
 
-    if (item.variantId) {
-      variant = product.variants.id(item.variantId);
-      if (!variant) {
-        throw new Error("Variant not found");
-      }
-      stock = variant.stock;
+    if (variantId) {
+      variant = product.variants[0];
+      if (!variant) throw new Error("Variant not found");
+      availableStock =
+        typeof variant.stock === "number" ? variant.stock : Infinity;
     }
-   
-    // ✅ Find if same item already exists in cart
-    let existingItem = cart.items.find((cartItem) => {
-      return (
-        cartItem.product._id.toString() === item.product.toString() &&
-        (cartItem.variantId ? cartItem.variantId.toString() : null) ===
-          (item.variantId ? item.variantId.toString() : null)
-      );
+
+    // 🔹 Find existing item
+    const existingItem = await tx.cartItem.findFirst({
+      where: {
+        cartId: cart.id,
+        productId,
+        variantId
+      }
     });
+
     if (existingItem) {
-      // Update quantity
-      const newQty = existingItem.quantity + item.quantity;
-      if (newQty > stock) {
-        throw new Error(`Only ${stock} items available in stock`);
+      const newQty = existingItem.quantity + qty;
+
+      if (availableStock !== Infinity && newQty > availableStock) {
+        throw new Error(`Only ${availableStock} items available`);
       }
-      existingItem.quantity = newQty;
+
+      await tx.cartItem.update({
+        where: { id: existingItem.id },
+        data: { quantity: newQty }
+      });
     } else {
-      // Insert new cart item
-      if (item.quantity > stock) {
-        throw new Error(`Only ${stock} items available in stock`);
+      if (availableStock !== Infinity && qty > availableStock) {
+        throw new Error(`Only ${availableStock} items available`);
       }
-      cart.items.push(item);
+
+      await tx.cartItem.create({
+        data: {
+          cartId: cart.id,
+          productId,
+          variantId,
+          name: variant
+            ? `${product.name} - ${variant.name}`
+            : product.name,
+          price: variant ? variant.price : product.price,
+          quantity: qty
+        }
+      });
     }
 
-    // ✅ Update modified date
-    cart.modifiedOn = new Date();
-
-    // ✅ Save & return populated cart
-    await cart.save();
-    return await Cart.findById(cart._id).populate({
-      path: "items.product",
-      select: "name price stock variants",
+    // 🔹 Lightweight cart return
+    return tx.cart.findUnique({
+      where: { id: cart.id },
+      select: {
+        id: true,
+        items: {
+          select: {
+            id: true,
+            productId: true,
+            variantId: true,
+            name: true,
+            price: true,
+            quantity: true
+          }
+        }
+      }
     });
-  } catch (error) {
-    console.error("addItemToCart Error:", error);
-    throw error; // let API handler respond
-  }
+  });
 };
 
 
 export const updateCartItemQuantity = async (userId, itemId, quantity, visitorId) => {
-    try {
-        const cart = userId ? userId : visitorId;
-        
-       const item = cart.items.id(itemId);
-        
-        if(!item){
-            throw new Error('Item not found in cart', 404);
-        }  
-        const product = await Product.findById(item.product);
-        if(!product){
-            throw new Error('Product not found', 404);
-        }
-        
-        if(quantity > product.stock){
-            throw new errorHandler(`Only ${product.stock} items available in stock`, 400);
-        }
+  try {
+    const id = Number(itemId);
+    const qty = Number(quantity);
+    const cartItem = await prisma.cartItem.findUnique({ where: { id }, include: { cart: true, product: true } });
+    if (!cartItem) throw new Error('Item not found in cart');
 
-        item.quantity += quantity;
+    // ownership check
+    if (userId && cartItem.cart.userId !== Number(userId)) throw new Error('Unauthorized');
+    if (visitorId && cartItem.cart.visitorId !== visitorId) throw new Error('Unauthorized');
 
-        cart.modifiedOn = Date.now();
+    const product = await prisma.product.findUnique({ where: { id: cartItem.productId } });
+    if (!product) throw new Error('Product not found');
 
-        await cart.save();
-        
-        let cartUpdated =  await Cart.findById(cart._id).populate("items.product","images price");
-        return cartUpdated;
-    } catch (error) {
-        console.error(`Error updating cart item quantity: ${error.message}`);
-        throw new Error(`Error updating cart item quantity: ${error.message}`);
+    if (typeof product.stock === 'number' && qty > product.stock) throw new Error(`Only ${product.stock} items available in stock`);
+
+    if (qty <= 0) {
+      await prisma.cartItem.delete({ where: { id } });
+    } else {
+      await prisma.cartItem.update({ where: { id }, data: { quantity: qty } });
     }
-};  
+
+    const updated = await prisma.cart.findUnique({ where: { id: cartItem.cartId }, include: { items: { include: { images: true, product: true } } } });
+    return updated;
+  } catch (error) {
+
+    throw new Error(`Error updating cart item quantity: ${error.message}`);
+  }
+};
 
 export const removeItemCart = async (userId, visitorId, itemId) => {
-    try {
-        const cart = userId ? await getOrCreateCart(userId) : await getCartByVisitorId(visitorId);
-        
-        if(!cart.items.id(itemId)){
-            throw new Error('Cart not found', 404);
-        }
-        cart.items.pull(itemId);
-        cart.modifiedOn = Date.now();
-        await cart.save();
+  try {
+    const id = Number(itemId);
+    const cartItem = await prisma.cartItem.findUnique({ where: { id }, include: { cart: true } });
+    if (!cartItem) throw new Error('Cart item not found');
 
-        return await Cart.findById(cart._id).populate({
-            path: 'items.product',
-            select: 'name price stock image'
-        });
-    } catch (error) {
-        console.error(`Error removing item from cart: ${error.message}`);
-        throw new Error(`Error removing item from cart: ${error.message}`);
-    }
+    if (userId && cartItem.cart.userId !== Number(userId)) throw new Error('Unauthorized');
+    if (visitorId && cartItem.cart.visitorId !== visitorId) throw new Error('Unauthorized');
+
+    await prisma.cartItem.delete({ where: { id } });
+
+    const updated = await prisma.cart.findUnique({ where: { id: cartItem.cartId }, include: { items: { include: { images: true, product: true } } } });
+    return updated;
+  } catch (error) {
+
+    throw new Error(`Error removing item from cart: ${error.message}`);
+  }
 };
 
 export const clearCartFromCart = async (userId, visitorId) => {
-    try {
-        const cart = userId ? await getOrCreateCart(userId) : await getCartByVisitorId(visitorId);
-        
-        if(!cart){
-            throw new Error('Cart not found', 404);
-        }
+  try {
+    const cart = userId ? await getOrCreateCart(userId) : await getCartByVisitorId(visitorId);
+    if (!cart) throw new Error('Cart not found');
 
-        cart.items = [];
-        cart.modifiedOn = Date.now();
-        await cart.save();
+    await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
 
-        return cart;
-    } catch (error) {
-        console.error(`Error clearing cart: ${error.message}`);
-        throw new Error(`Error clearing cart: ${error.message}`);
-    }
+    const updated = await prisma.cart.findUnique({ where: { id: cart.id }, include: { items: { include: { images: true, product: true } } } });
+    return updated;
+  } catch (error) {
+
+    throw new Error(`Error clearing cart: ${error.message}`);
+  }
 };
 
 export const applyCoupon1 = async (userId, visitorId, couponCode) => {
-    try {
-        const cart = userId ? await getOrCreateCart(userId) : await getCartByVisitorId(visitorId);
-        
-        if(!cart){
-            throw new Error('Cart not found', 404);
-        }
-
-        // Assuming you have a function to validate the coupon code
-        const discount = await validateCoupon(couponCode);
-        
-        if(!discount){
-            throw new Error('Invalid coupon code', 400);
-        }
-
-        cart.discount = discount;
-        cart.modifiedOn = Date.now();
-        await cart.save();
-
-        return await Cart.findById(cart._id).populate({
-            path: 'items.product',
-            select: 'name price stock image'
-        });
-    } catch (error) {
-        console.error(`Error applying coupon: ${error.message}`);
-        throw new Error(`Error applying coupon: ${error.message}`);
-    }
+  // Placeholder: coupon logic depends on your coupon model. For now return cart unchanged.
+  const cart = userId ? await getOrCreateCart(userId) : await getCartByVisitorId(visitorId);
+  return cart;
 };
 
 
 export const applyCoupon = async (userId, visitorId, couponCode) => {
-  try {
-    const cart = userId
-      ? await getOrCreateCart(userId)
-      : await getCartByVisitorId(visitorId);
-
-    if (!cart) {
-      throw new ApiError(404, "Cart not found");
-    }
-
-    const discount = await validateCoupon(couponCode);
-    if (!discount) {
-      throw new ApiError(400, "Invalid or expired coupon code");
-    }
-
-    // Save discount info on cart
-    cart.discount = discount;
-    cart.modifiedOn = Date.now();
-    await cart.save();
-
-    return await Cart.findById(cart._id).populate({
-      path: "items.product",
-      select: "name price stock image",
-    });
-  } catch (error) {
-    console.error("Error applying coupon:", error);
-    if (error instanceof ApiError) {
-      throw error; // rethrow with status code
-    }
-    throw new ApiError(500, "Internal server error");
-  }
-}
+  // For now, just return the cart; implement coupon validation and cart update as needed.
+  const cart = userId ? await getOrCreateCart(userId) : await getCartByVisitorId(visitorId);
+  return cart;
+};

@@ -10,7 +10,6 @@ export const getShiprocketAuthToken = async () => {
         shiprocketToken = response.data.token;
         return shiprocketToken;
     } catch (error) {
-        console.error('Error fetching Shiprocket auth token:', error);
         throw error;
     } 
 };

@@ -7,7 +7,6 @@ export const shippoWebhookHandler = async (req, res) => {
         // Process the event as needed
         res.status(200).json({ message: "Webhook received" });
     } catch (error) {
-        console.error("Error handling Shippo webhook:", error);
         res.status(500).json({ message: "Internal server error" });
     }  
 }
@@ -26,7 +25,6 @@ export const postAvailableCouriers = async (req,res) => {
         
         return res.status(200).json({success:true, data:data});
     } catch (error) {
-        console.error("Error in getAvailableCouriers controller:", error);
         return res.status(500).json({success:false, message:error.message});
     }
 };

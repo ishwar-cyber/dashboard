@@ -1,5 +1,6 @@
-import axios from "axios"; // <-- missing import
-import Order from "../models/order.model.js";
+import axios from "axios";
+import prisma from '../config/prisma.js';
+
 export const cashfreeWebhook = async (req, res) => {
   try {
     const event = JSON.parse(req.body.toString()); // raw buffer → JSON
@@ -12,17 +13,11 @@ export const cashfreeWebhook = async (req, res) => {
     if (paymentStatus === "SUCCESS") finalStatus = "success";
     if (paymentStatus === "FAILED") finalStatus = "failed";
 
-    await Order.updateOne(
-      { orderNumber: orderId },
-      {
-        paymentStatus: finalStatus,
-        paymentInfo: event.data.payment,
-      }
-    );
+    // Update using Prisma
+    await prisma.order.updateMany({ where: { orderNumber: orderId }, data: { paymentStatus: finalStatus } });
 
     return res.status(200).send("OK");
   } catch (err) {
-    console.error("Webhook error:", err);
     return res.status(400).send("Webhook Error");
   }
 };
@@ -48,7 +43,7 @@ export const getPaymentStatus = async (req, res) => {
       data: response.data
     });
   } catch (error) {
-    console.error("Cashfree Verify Error:", error.response?.data);
+ 
     return res.status(500).json({
       success: false,
       error: error.response?.data || error.message
@@ -58,10 +53,7 @@ export const getPaymentStatus = async (req, res) => {
 
 export const updatePaymentStatus = async (orderId, status, paymentInfo) => {
   try {
-    await Order.updateOne(
-      { orderNumber: orderId },
-      { paymentStatus: status, paymentInfo: paymentInfo }
-    );
+    await prisma.order.updateMany({ where: { orderNumber: orderId }, data: { paymentStatus: status } });
   } catch (error) {
     console.error("Update Payment Status Error:", error);
   }

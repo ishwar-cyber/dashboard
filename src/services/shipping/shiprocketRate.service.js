@@ -20,7 +20,7 @@ export const getShippingRates = async (shipmentDetails) => {
     }
     const couriers =
       response.data?.data?.available_courier_companies ?? [];
-    console.log('couriers', couriers);
+
     
     if (!couriers.length) {
       return  response.data;
@@ -33,9 +33,6 @@ export const getShippingRates = async (shipmentDetails) => {
     // 🔥 HTTP errors (400, 404, 500)
     if (error.response) {
       const { status, data } = error.response;
-
-      console.error("Shiprocket API Error:", status, data);
-
       switch (status) {
         case 400:
           throw new Error(data?.message || "Invalid shipment details");

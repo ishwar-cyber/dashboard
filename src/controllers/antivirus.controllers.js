@@ -1,180 +1,115 @@
-import AntivirusKey from "../models/antivirus.model.js";
-import Product from "../models/product.model.js";
-import mongoose from "mongoose";
+import prisma from '../config/prisma.js';
 
-/**
- * Helper - recalc and update product.stock based on available keys
- */
 async function updateProductStock(productId) {
-  const availableCount = await AntivirusKey.countDocuments({ productId, status: "available" });
-  await Product.findByIdAndUpdate(productId, { stock: availableCount }, { new: true }).exec();
+  const pid = Number(productId);
+  const availableCount = await prisma.productAntivirusKey.count({ where: { productId: pid, status: 'available' } });
+  await prisma.product.update({ where: { id: pid }, data: { stock: availableCount } });
   return availableCount;
 }
 
-/**
- * Add multiple keys (admin)
- * Body: { keys: ["KEY1", "KEY2", ...] }
- */
 export const addAntivirusKeys = async (req, res) => {
   try {
     const { productId } = req.params;
     let { keys } = req.body;
-    if (!Array.isArray(keys) || keys.length === 0) {
-      return res.status(400).json({ message: "No keys provided" });
-    }
+    if (!Array.isArray(keys) || keys.length === 0) return res.status(400).json({ message: 'No keys provided' });
 
     keys = keys.map(k => k.trim()).filter(Boolean);
-    const docs = keys.map(k => ({ productId, key: k, status: "available" }));
+    const data = keys.map(k => ({ productId: Number(productId), licenseKey: k, status: 'available' }));
 
-    // insertMany with ordered:false => continue on duplicate key errors
-    const inserted = await AntivirusKey.insertMany(docs, { ordered: false }).catch(err => {
-      // If duplicate key errors, some inserts may succeed
-      if (err && err.writeErrors) {
-        // ignore duplicates
-        return err.insertedDocs || [];
-      }
-      throw err;
-    });
+    // createMany supports skipDuplicates
+    const result = await prisma.productAntivirusKey.createMany({ data, skipDuplicates: true });
 
     await updateProductStock(productId);
 
-    return res.json({
-      message: "Keys added",
-      added: inserted.length || 0
-    });
+    return res.json({ message: 'Keys added', added: result.count || 0 });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: err.message });
   }
 };
 
-/**
- * Get keys for a product with pagination & filter
- * Query: ?page=1&limit=50&status=available
- */
 export const getAntivirusKeys = async (req, res) => {
   try {
     const { productId } = req.params;
-    const page = Math.max(1, parseInt(req.query.page || "1", 10));
-    const limit = Math.min(200, parseInt(req.query.limit || "50", 10));
-    const status = req.query.status; // optional filter
+    const page = Math.max(1, parseInt(req.query.page || '1', 10));
+    const limit = Math.min(200, parseInt(req.query.limit || '50', 10));
+    const status = req.query.status;
 
-    const filter = { productId };
-    if (status) filter.status = status;
+    const where = { productId: Number(productId) };
+    if (status) where.status = status;
 
     const [keys, total] = await Promise.all([
-      AntivirusKey.find(filter)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean()
-        .exec(),
-      AntivirusKey.countDocuments(filter)
+      prisma.productAntivirusKey.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit }),
+      prisma.productAntivirusKey.count({ where })
     ]);
 
-    return res.json({
-      data: keys,
-      meta: { page, limit, total }
-    });
+    return res.json({ data: keys, meta: { page, limit, total } });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: err.message });
   }
 };
 
-/**
- * Sell one available key (atomic)
- * Body: { userEmail: "customer@example.com" }
- * Uses findOneAndUpdate to atomically claim one available key.
- */
 export const sellAntivirusKey = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
     const { productId } = req.params;
     const { userEmail } = req.body;
-    if (!userEmail) return res.status(400).json({ message: "userEmail required" });
+    if (!userEmail) return res.status(400).json({ message: 'userEmail required' });
 
-    // atomically find one available key and mark sold
-    const key = await AntivirusKey.findOneAndUpdate(
-      { productId, status: "available" },
-      { $set: { status: "sold", soldTo: userEmail, soldAt: new Date() } },
-      { new: true, session }
-    ).exec();
+    // Atomic transaction: find one available key and claim it
+    const result = await prisma.$transaction(async (tx) => {
+      const key = await tx.productAntivirusKey.findFirst({ where: { productId: Number(productId), status: 'available' }, orderBy: { id: 'asc' } });
+      if (!key) return null;
+      const updated = await tx.productAntivirusKey.update({ where: { id: key.id }, data: { status: 'sold', soldTo: userEmail, soldAt: new Date() } });
+      const availableCount = await tx.productAntivirusKey.count({ where: { productId: Number(productId), status: 'available' } });
+      await tx.product.update({ where: { id: Number(productId) }, data: { stock: availableCount } });
+      return updated;
+    });
 
-    if (!key) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "No available keys" });
-    }
-
-    // Update product stock based on remaining available keys
-    const availableCount = await AntivirusKey.countDocuments({ productId, status: "available" }).session(session);
-
-    await Product.findByIdAndUpdate(productId, { stock: availableCount }, { session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    return res.json({ message: "Key sold", key });
+    if (!result) return res.status(400).json({ message: 'No available keys' });
+    return res.json({ message: 'Key sold', key: result });
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
     console.error(err);
     return res.status(500).json({ message: err.message });
   }
 };
 
-/**
- * Delete a single key (admin)
- */
 export const deleteAntivirusKey = async (req, res) => {
   try {
     const { keyId } = req.params;
-    const key = await AntivirusKey.findByIdAndDelete(keyId);
-    if (!key) return res.status(404).json({ message: "Key not found" });
-
+    const key = await prisma.productAntivirusKey.delete({ where: { id: Number(keyId) } });
+    if (!key) return res.status(404).json({ message: 'Key not found' });
     await updateProductStock(key.productId);
-
-    return res.json({ message: "Key deleted" });
+    return res.json({ message: 'Key deleted' });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: err.message });
   }
 };
 
-/**
- * Bulk delete keys by filter (admin)
- * Body: { status: "invalid" }  // deletes all matching for productId
- */
 export const bulkDeleteKeys = async (req, res) => {
   try {
     const { productId } = req.params;
-    const filter = { productId, ...(req.body.status ? { status: req.body.status } : {}) };
-
-    const result = await AntivirusKey.deleteMany(filter);
+    const where = { productId: Number(productId) };
+    if (req.body.status) where.status = req.body.status;
+    const result = await prisma.productAntivirusKey.deleteMany({ where });
     await updateProductStock(productId);
-
-    return res.json({ message: "Deleted", deletedCount: result.deletedCount });
+    return res.json({ message: 'Deleted', deletedCount: result.count });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: err.message });
   }
 };
 
-/**
- * Optional: Recalculate stock for all products (admin)
- */
 export const recalcAllProductStocks = async (req, res) => {
   try {
-    const products = await Product.find({}, "_id").lean();
-    const updates = [];
-    for (const p of products) {
-      const count = await AntivirusKey.countDocuments({ productId: p._id, status: "available" });
-      updates.push(Product.findByIdAndUpdate(p._id, { stock: count }).exec());
-    }
+    const products = await prisma.product.findMany({ select: { id: true } });
+    const updates = products.map(async (p) => {
+      const count = await prisma.productAntivirusKey.count({ where: { productId: p.id, status: 'available' } });
+      return prisma.product.update({ where: { id: p.id }, data: { stock: count } });
+    });
     await Promise.all(updates);
-    return res.json({ message: "Stocks recalculated" });
+    return res.json({ message: 'Stocks recalculated' });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: err.message });

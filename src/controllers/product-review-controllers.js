@@ -1,5 +1,4 @@
-
-import ProductReview from "../models/product-review.model.js"
+import mongoose from 'mongoose';
 export const addProductReview = async (req, res) => {
     try {
         const { productId, name, comment, email, rating } = req.body;
@@ -16,7 +15,7 @@ export const getProductReviews = async (req, res) => {
   try {
     const { productId } = req.params;
 
-    const reviews = await ProductReview.find({ productId }).sort({ createdAt: -1 }).lean(); ;
+    const reviews = await ProductReview.find({ productId }).sort({ createdAt: -1 }).lean();
 
     // Total reviews
     const totalReviews = reviews.length;
@@ -73,7 +72,15 @@ export const getAllProductsReviews = async (req, res) => {
     // Mongo Filter Object
     const match = {};
 
-    if (productId) match.productId = new mongoose.Types.ObjectId(productId);
+    if (productId) {
+      // Only convert to ObjectId when the id looks like a 24-char hex string
+      if (/^[0-9a-fA-F]{24}$/.test(productId)) {
+        match.productId = new mongoose.Types.ObjectId(productId);
+      } else {
+        // leave as-is (some legacy entries may store different id types)
+        match.productId = productId;
+      }
+    }
     if (rating) match.rating = Number(rating);
     if (status) match.status = status;
 

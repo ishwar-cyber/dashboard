@@ -1,12 +1,14 @@
 import { SitemapStream, streamToPromise } from 'sitemap';
-import Product from '../models/product.model.js';
-import Category from '../models/category.model.js';
+import prisma from '../config/prisma.js';
 import { BASE_URL } from '../../config/env.js';
+import cache from './cache.js';
+
 export async function generateSitemap() {
     try {
-        const smStream = new SitemapStream({
-            hostname: BASE_URL || 'http://localhost:4400'
-        });
+        const cached = cache.getCache('sitemap_xml');
+        if (cached) return cached;
+
+        const smStream = new SitemapStream({ hostname: BASE_URL || 'http://localhost:4400' });
 
         // Add static routes
         smStream.write({ url: '/', changefreq: 'daily', priority: 1.0 });
@@ -14,32 +16,24 @@ export async function generateSitemap() {
         smStream.write({ url: '/categories', changefreq: 'weekly', priority: 0.7 });
         smStream.write({ url: '/contact', changefreq: 'monthly', priority: 0.5 });
 
-        // Add dynamic product routes
-        const products = await Product.find({ status: true }).select('slug updatedAt');
+        // Add dynamic product routes from Prisma
+        const products = await prisma.product.findMany({ where: { status: true }, select: { slug: true, updatedAt: true } });
         products.forEach(product => {
-            smStream.write({
-                url: `/product/${product.slug}`,
-                changefreq: 'weekly',
-                priority: 0.8,
-                lastmod: product.updatedAt
-            });
+            smStream.write({ url: `/product/${product.slug}`, changefreq: 'weekly', priority: 0.8, lastmod: product.updatedAt });
         });
 
         // Add dynamic category routes
-        const categories = await Category.find({ isActive: true }).select('slug updatedAt');
+        const categories = await prisma.category.findMany({ where: { isActive: true }, select: { slug: true, updatedAt: true } });
         categories.forEach(category => {
-            smStream.write({
-                url: `/category/${category.slug}`,
-                changefreq: 'weekly',
-                priority: 0.7,
-                lastmod: category.updatedAt
-            });
+            smStream.write({ url: `/category/${category.slug}`, changefreq: 'weekly', priority: 0.7, lastmod: category.updatedAt });
         });
 
         smStream.end();
-        return await streamToPromise(smStream);
+        const buffer = await streamToPromise(smStream);
+        // cache sitemap for 10 minutes
+        cache.setCache('sitemap_xml', buffer, 600);
+        return buffer;
     } catch (error) {
-        console.error('Sitemap generation error:', error);
         throw error;
     }
 }

@@ -21,8 +21,15 @@ import sitemapRouter from "./src/routes/sitemap.routes.js";
 import saleReportRouter from "./src/routes/sale-reports.routers.js";
 import antivirusRouter from "./src/routes/antivirus.routes.js";
 import productReviewRouter from "./src/routes/product-review.routes.js";
+import uploadImageRouter from "./src/routes/upload-image.js";
+import compression from "compression";
 const app = express();
-
+app.use(
+  compression({
+    level: 6,           // default is fine
+    threshold: 1024     // compress responses > 1KB
+  })
+);
 app.use(express.json({limit: "16kb"}));
 app.use(express.urlencoded({extended: false,limit: "16kb"}));
 app.use(express.static("public"));
@@ -69,6 +76,7 @@ app.use('/api/v1/payment',paymentRoute);
 app.use('/api/v1/reports', saleReportRouter);
 app.use('/api/v1/antivirus', antivirusRouter);
 app.use('/api/v1/reviews', productReviewRouter);
+app.use('/api/v1/upload', uploadImageRouter);
 app.get('/', (req,res)=>{
     res.send("shooppyness api working fine")
 });
@@ -78,7 +86,7 @@ app.use(errorHandling);
 app.listen(PORT,async()=>{
     console.log(`shoppyness api working http://localhost:${PORT}`);
    await connectToDatabse();
-   console.log("mongodb connected");
+  //  console.log("mongodb connected");
    await connectToPostgre();
    console.log("postreSQl connected");
 })

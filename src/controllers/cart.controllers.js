@@ -1,9 +1,5 @@
-import mongoose from "mongoose";
-import Product from '../models/product.model.js';
-import Cart from '../models/cart.model.js';
-import User from '../models/user.model.js';
 import { getIds } from '../utilities/checkUserAndVisitor.js';
-import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon } from '../services/cart.service.js' 
+import { addItemToCart, updateCartItemQuantity, removeItemCart, applyCoupon, getCartByVisitorId, getOrCreateCart } from '../services/cart.service.js';
 import { calculatedCart } from '../services/cart.calculater.service.js';
 
 export const addToCart = async (req, res) => {
@@ -14,79 +10,14 @@ export const addToCart = async (req, res) => {
     const userId = validation.userId;
     const visitorId = validation.visitorId;
 
-    // Build query dynamically
-    let query = null;
-    if (userId) {
-      query = { userId };
-    } else if (visitorId) {
-      query = { visitorId };
-    }
+    if (!productId) return res.status(400).json({ success: false, message: 'Product id is required' });
+    if (quantity <= 0) return res.status(400).json({ success: false, message: 'Quantity must be greater than zero' });
 
-    if (!productId) {
-      return res.status(400).json({ success: false, message: "Product id is required" });
-    }
+    const cart = await addItemToCart(userId, { productId, variantId, quantity }, visitorId);
 
-    if (quantity <= 0) {
-      return res.status(400).json({ success: false, message: "Quantity must be greater than zero" });
-    }
-
-    // Find product
-    const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
-    }
-
-    let name, image, price, discount, stock;
-
-    if (variantId) {
-      // ✅ Variant case
-      const variant = product.variants.id(variantId);
-      if (!variant) {
-        return res.status(404).json({ success: false, message: "Variant not found" });
-      }
-
-      stock = variant.stock;
-
-      if (stock !== 'in') {
-        return res.status(400).json({ success: false, message: "Not enough stock for this variant" });
-      }
-
-      name = `${product.name} - ${variant.name}`;
-      image = variant.image || product.productImages?.[0];
-      price = variant.price;
-      discount = variant.discount || product.discount;
-    } else {
-      // ✅ Product case
-      stock = product.stock;
-      if (stock < quantity) {
-        return res.status(400).json({ success: false, message: "Not enough stock for this product" });
-      }
-
-      name = product.name;
-      image = product.productImages?.[0];
-      price = product.price;
-      discount = product.discount;
-    }
-
-    const response = {
-      product: product._id,
-      variantId: variantId || null,
-      name,
-      image,
-      price,
-      discount,
-      quantity,
-    };
-
-    // ✅ Add/Update cart
-    const cart = await addItemToCart(userId, response, visitorId);    
-    res.status(200).json({
-      success: true,
-      message: "Item added to cart",
-      data: cart,
-    });
+    res.status(200).json({ success: true, message: 'Item added to cart', data: cart });
   } catch (error) {
-    console.error("Add to Cart Error:", error);
+
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
@@ -97,32 +28,21 @@ export const getCart = async (req, res) => {
     const userId = validation.userId;
     const visitorId = validation.visitorId;
       // ✅ Build query dynamically
-    let query = null;
-    if (userId) {
-      query = { userId };
-    } else if (visitorId) {
-      query = { visitorId };
-    }
-
     // If no identifiers → return empty cart safely
-    if (!query) {
-      return res.status(200).json({
-        message: "Get all Cart",
-        success: true,
-        data: { items: [] }
-      });
+    if (!userId && !visitorId) {
+      return res.status(200).json({ message: 'Get all Cart', success: true, data: { items: [] } });
     }
 
-    const cart = await Cart.findOne(query)
-      .populate("items.product", "stock images slug");
+    let cart = null;
+    if (userId) {
+      cart = await getOrCreateCart(userId);
+    } else if (visitorId) {
+      cart = await getCartByVisitorId(visitorId);
+    }
 
-    res.status(200).json({
-      message: "Get all Cart",
-      success: true,
-      data: cart || { items: [] }
-    });
+    res.status(200).json({ message: 'Get all Cart', success: true, data: cart || { items: [] } });
   } catch (error) {
-    console.error(`Error fetching cart: ${error.message}`);
+
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
@@ -175,7 +95,7 @@ export const removeItemFromCart = async (req, res) => {
 
     res.status(200).json({ success: true, message: "Item removed from cart" });
   } catch (error) {
-    console.error(`Error removing item from cart: ${error.message}`);
+
     res
       .status(500)
       .json({ success: false, message: "Internal server error" });
@@ -219,7 +139,7 @@ export const updateCartQuantity = async (req, res) => {
             data: cart
         });
     } catch (error) {
-        console.error(`Error updating cart item quantity: ${error.message}`);
+   
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
@@ -285,7 +205,7 @@ export const updateCartItem = async (req, res) => {
       data: cart,
     });
   } catch (error) {
-    console.error("Error updating quantity:", error);
+    
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -317,7 +237,7 @@ export const applyCoupons = async (req, res) => {
           data: await calculatedCart(cart)
       });
     } catch (error) {
-        console.error(`Error applying coupon: ${error.message}`);
+   
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 }

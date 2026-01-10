@@ -1,132 +1,224 @@
-import errorHandling from '../middleware/error.middleware.js';
-import Category from '../models/category.model.js';
-import Product from '../models/product.model.js';
-import slugify from 'slugify';
+import slugify from "slugify";
+import prisma from "../config/prisma.js";
 
+/* ======================================
+   GET ALL CATEGORIES (FAST + NO N+1)
+====================================== */
 export const getAllCategories = async (options = {}) => {
-    try {
-        const page = parseInt(options.page) || 1;
-        const limit = parseInt(options.limit) || 10;
-        const skip = (page - 1) * limit;
-        const query = options.query || {};
-        if (options.isActive) {
-            query.isActive = options.isActive === 'true';
-        }
-        if (options.search) {
-            query.name = { $regex: options.search, $options: 'i' };
-        }
-        const categories = await Category.find(query)
-            .skip(skip)
-            .limit(limit)
-            .sort({ createdAt: -1 });
-        const total = await Category.countDocuments(query);
-        // Add productCount for each category
-        const categoriesWithProductCount = await Promise.all(categories.map(async (cat) => { 
-            const productCount = await Product.countDocuments({ category: cat.id });    
-            return { ...cat.toObject(), productCount };
-        }));
-
-        return {
-            categories: categoriesWithProductCount,
-            pagination: {
-                total,
-                page,
-                limit,
-                pages: Math.ceil(total / limit)
-            }
-        };
-    } catch (error) {
-        throw new Error(`Error fetching categories: ${error.message}`);
-    }
-};
-
-export const createCategory = async (categoryData) => {
-    try {
-        if (!categoryData.slug) {
-            categoryData.slug = slugify(categoryData.name, { lower: true });
-        }
-        const existingCategory = await Category.findOne({
-            $or: [
-                { name: categoryData.name },
-                { slug: categoryData.slug }
-            ]
-        });
-        if (existingCategory) {
-            throw new Error("Category with this name or slug already exists", 400);
-        }
-        const category = new Category(categoryData);
-        await category.save();
-        return category;
-    } catch (error) {
-        if (error instanceof Error) {
-            throw error;
-        }
-        throw new Error(`Error creating category: ${error.message}`);
-    }
-};
-
-export const getCategoryByIdOrSlug = async (idOrSlug) => {
-    try {
-        let category;
-        const query = idOrSlug.includes('-') ? { slug: idOrSlug } : { _id: idOrSlug };
-        if(/^[0-9a-fA-F]{24}$/.test(idOrSlug)){
-            category = await Category.findById(idOrSlug);
-        } else {
-            category = await Category.findOne(query);
-        }
-        if (!category) {
-            throw new Error('Category not found', 404);
-        }
-        return category;
-    } catch (error) {
-        throw new Error(`Error fetching category: ${error.message}`);
-    }
-};
-
-export const updateCategoryById = async (id, categoryData) => {
-    try {
-        const category = await Category.findById(id);
-        if (!category) {
-            throw new Error('Category not found', 404);
-        }
-        Object.assign(category, categoryData);
-        await category.save();
-        return category;
-    } catch (error) {
-        throw new Error(`Error updating category: ${error.message}`);
-    }
-};
-
-export const deleteCategory = async (id) => {
   try {
-    const category = await Category.findById(id);
-    if (!category) {
-      throw new errorHandling('Category not found', 404);
-    }
-    // Check for products using this category
-    const productsCount = await Product.countDocuments({ category: id });
-    if (productsCount > 0) {
-      throw new errorHandling(
-        `Cannot delete category with ${productsCount} associated products`,
-        400
-      );
-    }
-    
-    // Check for child categories
-    const childrenCount = await Category.countDocuments({ parent: id });
-    if (childrenCount > 0) {
-      throw new errorHandling(
-        `Cannot delete category with ${childrenCount} child categories`,
-        400
-      );
-    }
+    const where = {
+      ...(options.isActive !== undefined && {
+        isActive: options.isActive === "true"
+      }),
+      ...(options.search && {
+        name: { contains: options.search, mode: "insensitive" }
+      })
+    };
 
-    await Category.findByIdAndDelete(id);
-    return true;
+    // 🔥 Parallel DB calls (FIXED)
+    const [categories, productCounts] = await Promise.all([
+      prisma.category.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          isActive: true,
+          createdAt: true,
+          image: {
+            select: { url: true }
+          }
+        }
+      }),
 
+      prisma.product.groupBy({
+        by: ["categoryId"],
+        _count: { _all: true }
+      })
+    ]);
+
+    // 🔹 Map product count efficiently
+    const countMap = {};
+    productCounts.forEach(p => {
+      countMap[p.categoryId] = p._count._all;
+    });
+
+    const categoriesWithProductCount = categories.map(cat => ({
+      ...cat,
+      productCount: countMap[cat.id] || 0
+    }));
+
+    return { categories: categoriesWithProductCount };
   } catch (error) {
-    if (error instanceof error) throw error;
-    throw new Error(`Error deleting category: ${error.message}`);
+    throw new Error(`Error fetching categories: ${error.message}`);
+  }
+}
+
+/* ======================================
+   CREATE CATEGORY (DB ONLY)
+====================================== */
+export const createCategory = async (categoryData) => {
+  try {
+    if (!categoryData.name) {
+      throw new Error("Category name is required");
+    }
+
+    const slug =
+      categoryData.slug ||
+      slugify(categoryData.name, { lower: true, strict: true });
+
+    const existing = await prisma.category.findFirst({
+      where: {
+        OR: [{ name: categoryData.name }, { slug }]
+      },
+      select: { id: true }
+    });
+
+    if (existing) {
+      throw new Error("Category with this name or slug already exists");
+    }
+
+    return await prisma.category.create({
+      data: {
+        name: categoryData.name,
+        slug,
+        isActive: categoryData.isActive ?? true,
+        metaTitle: categoryData.metaTitle ?? null,
+        metaDescription: categoryData.metaDescription ?? null,
+
+        ...(categoryData.image && {
+          image: {
+            create: {
+              url: categoryData.image.url,
+              publicId: categoryData.image.public_id
+            }
+          }
+        })
+      }
+    });
+  } catch (error) {
+    throw new Error(`Error creating category: ${error.message}`);
   }
 };
 
+/* ======================================
+   GET CATEGORY BY ID OR SLUG
+====================================== */
+export const getCategoryByIdOrSlug = async (idOrSlug) => {
+  try {
+    const where = isNaN(Number(idOrSlug))
+      ? { slug: idOrSlug }
+      : { id: Number(idOrSlug) };
+
+    const category = await prisma.category.findUnique({
+      where,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        isActive: true,
+        metaTitle: true,
+        metaDescription: true,
+        image: {
+          select: { url: true }
+        }
+      }
+    });
+
+    if (!category) throw new Error("Category not found");
+    return category;
+  } catch (error) {
+    throw new Error(`Error fetching category: ${error.message}`);
+  }
+};
+
+/* ======================================
+   UPDATE CATEGORY (NO UPLOAD)
+====================================== */
+export const updateCategoryById = async (id, categoryData) => {
+  try {
+    const categoryId = Number(id);
+
+    const existing = await prisma.category.findUnique({
+      where: { id: categoryId },
+      select: { id: true }
+    });
+
+    if (!existing) throw new Error("Category not found");
+
+    return await prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        ...(categoryData.name && { name: categoryData.name }),
+        ...(categoryData.slug && { slug: categoryData.slug }),
+        ...(categoryData.isActive !== undefined && {
+          isActive: categoryData.isActive === true || categoryData.isActive === "true"
+        }),
+        ...(categoryData.metaTitle !== undefined && {
+          metaTitle: categoryData.metaTitle
+        }),
+        ...(categoryData.metaDescription !== undefined && {
+          metaDescription: categoryData.metaDescription
+        }),
+
+        ...(categoryData.image && {
+          image: {
+            upsert: {
+              create: {
+                url: categoryData.image.url,
+                publicId: categoryData.image.public_id
+              },
+              update: {
+                url: categoryData.image.url,
+                publicId: categoryData.image.public_id
+              }
+            }
+          }
+        })
+      }
+    });
+  } catch (error) {
+    throw new Error(`Error updating category: ${error.message}`);
+  }
+};
+
+/* ======================================
+   DELETE CATEGORY (TRANSACTION SAFE)
+====================================== */
+export const deleteCategory = async (id) => {
+  const categoryId = Number(id);
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const category = await tx.category.findUnique({
+        where: { id: categoryId },
+        select: { id: true }
+      });
+
+      if (!category) throw new Error("Category not found");
+
+      const [productsCount, childrenCount] = await Promise.all([
+        tx.product.count({ where: { categoryId } }),
+        tx.subCategory.count({ where: { categoryId } })
+      ]);
+
+      if (productsCount > 0) {
+        throw new Error(
+          `Cannot delete category with ${productsCount} associated products`
+        );
+      }
+
+      if (childrenCount > 0) {
+        throw new Error(
+          `Cannot delete category with ${childrenCount} child categories`
+        );
+      }
+
+      await tx.category.delete({ where: { id: categoryId } });
+      return true;
+    });
+  } catch (error) {
+    throw new Error(`Error deleting category: ${error.message}`);
+  }
+};

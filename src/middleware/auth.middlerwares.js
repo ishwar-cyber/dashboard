@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../../config/env.js";
-import User from "../models/user.model.js"
+import prisma from "../config/prisma.js"
 
 // Middleware for authentication
 const tokenVerify = async (req, res, next) => {
@@ -11,7 +11,7 @@ const tokenVerify = async (req, res, next) => {
         if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
         const decoded = jwt.verify(token, JWT_SECRET);
-        const user = await User.findById(decoded.userId);
+        const user = await prisma.user.findUnique({where: {id: decoded.userId}});
 
         if (!user) return res.status(401).json({ message: 'Unauthorized' });
         req.user = user; // Attach user to request
@@ -27,7 +27,8 @@ const role = (role) => {
         if (!req.user) {
             return res.status(401).json({ message: 'Unauthorized' });
         }        
-        if (req.user.isRole !== role) {
+        const requiredRole = role === 'admin' ? 'ADMIN' : 'USER';
+        if (req.user.role !== requiredRole) {
             return res.status(403).json({ message: 'You do not have permission to access this resource.' });
         }
         next();

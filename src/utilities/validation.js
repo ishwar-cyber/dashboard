@@ -1,12 +1,11 @@
-import mongoose from 'mongoose';
-
 /**
- * Validate MongoDB ObjectId
- * @param {string} id - ObjectId to validate
- * @returns {boolean} - True if valid ObjectId
+ * Validate numeric ID used by Prisma (integer > 0)
+ * @param {string|number} id - ID to validate
+ * @returns {boolean} - True if valid numeric id
  */
 export const validateObjectId = (id) => {
-    return mongoose.Types.ObjectId.isValid(id);
+    const n = Number(id);
+    return Number.isInteger(n) && n > 0;
 };
 
 /**
@@ -180,3 +179,27 @@ export const calculateOrderTotals = (items, tax = 0, shipping = 0, discount = 0)
         total
     };
 }; 
+
+export const validations =
+  (schema, property = 'body') =>
+  (req, res, next) => {
+    try {
+      const parsed = schema.parse(req[property]);
+
+      // overwrite request with sanitized data
+      req[property] = parsed;
+      next();
+    } catch (error) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: error.errors.map(e => ({
+            path: e.path.join('.'),
+            message: e.message
+          }))
+        });
+      }
+      next(error);
+    }
+  };

@@ -1,10 +1,5 @@
-import Order from '../models/order.model.js';
-import Cart from '../models/cart.model.js';
-import User from '../models/user.model.js';
-import Product from '../models/product.model.js';
-import { validateObjectId } from '../utilities/validation.js';
+import prisma from '../config/prisma.js';
 import { sendOrderEmail } from '../utilities/email.js';
-import Coupon from '../models/coupon.model.js';
 import { getIds } from '../utilities/checkUserAndVisitor.js';
 import { generateOrderNumber } from '../utilities/orderNumber.js';
 import axios from "axios";
@@ -13,235 +8,161 @@ export const createOrder = async (req, res) => {
     const { userId, visitorId } = await getIds(req);
     const orderNumber = await generateOrderNumber();
     const { items, shippingAddress, paymentMethod, totalAmount, couponDiscount } = req.body;
-    
-    if (!userId && !visitorId) {
-      return res.status(400).json({ success: false, message: "User or Visitor ID is required" });
-    }
-    if (!items || items.length === 0) {
-      return res.status(400).json({ success: false, message: "Order items are required" });
-    }
 
-    if (!shippingAddress) {
-      return res.status(400).json({ success: false, message: "Shipping address is required" });
-    }
+    if (!userId) return res.status(400).json({ success: false, message: 'User ID is required' });
+    if (!items || items.length === 0) return res.status(400).json({ success: false, message: 'Order items are required' });
+    if (!shippingAddress) return res.status(400).json({ success: false, message: 'Shipping address is required' });
+    if (!paymentMethod) return res.status(400).json({ success: false, message: 'Payment method is required' });
 
-    if (!paymentMethod) {
-      return res.status(400).json({ success: false, message: "Payment method is required" });
-    }
-
-    
-    // 🔎 Stock check
+    // Stock check using Prisma
     for (let item of items) {
-      const product = await Product.findById(item.product.id || item.product);
+      const productId = Number(item.product.id || item.product);
+      const product = await prisma.product.findUnique({ where: { id: productId }, include: { variants: true } });
       if (!product) return res.status(404).json({ message: `Product ${item.name} not found` });
 
-      // For variant check
       if (item.variantId) {
-        const variant = product.variants.id(item.variantId);
+        const vId = Number(item.variantId);
+        const variant = product.variants.find(v => v.id === vId);
         if (!variant) return res.status(404).json({ message: `Variant not found for ${item.name}` });
-        if (Number(variant.stock) < item.quantity) {
-          return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
-        }
+        if (Number(variant.stock) < item.quantity) return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
       } else {
-        if (product.stock === 'out') {
-          return res.status(400).json({ message: `Product ${item.name} is out of stock` });
-        }
-        if (Number(product.stock) < item.quantity) {
-          return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
-        }
+        if (typeof product.stock === 'number' && Number(product.stock) < item.quantity) return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
       }
     }
-    // 🎟 Apply coupon
-    // let discount = 0;
-    // if (couponDiscount) {
-    //   const coupon = await Coupon.findOne({ code: couponCode });
-    //   if (coupon) {
-    //     discount = coupon.type === "percentage" ? (totalAmount * coupon.value) / 100 : coupon.value;
-    //     coupon.usedCount += 1;
-    //     await coupon.save();
-    //   }
-    // }
 
-    // const finalAmount = totalAmount - couponDiscount;
-    const order = new Order({
-      orderNumber,
-      user: userId || null,
-      visitorId: visitorId || null,
-      items,
-      shippingAddress,
-      paymentMethod,
-      totalAmount: totalAmount,
-      discountApplied: couponDiscount || 0,
+    // Create order and order items
+    const createdOrder = await prisma.order.create({
+      data: {
+        orderNumber,
+        userId: Number(userId),
+        paymentMethod,
+        totalAmount: Number(totalAmount),
+        items: {
+          create: items.map(it => ({
+            productId: Number(it.product.id || it.product),
+            variantId: it.variantId ? Number(it.variantId) : null,
+            name: it.name,
+            price: Number(it.price),
+            quantity: Number(it.quantity),
+            image: it.image || null
+          }))
+        },
+        address: {
+          create: {
+            fullName: shippingAddress.fullName,
+            phone: shippingAddress.phone,
+            line1: shippingAddress.line1,
+            line2: shippingAddress.line2,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            pincode: shippingAddress.pincode,
+          }
+        }
+      }
     });
-    // await order.save();
-    // ✅ Clear cart after order
-       // Call Cashfree API
-  const user = await User.findById(userId);
-  const response = await axios.post(
-    `https://sandbox.cashfree.com/pg/orders`,
+
+    // Call Cashfree API
+    const response = await axios.post(
+      `https://sandbox.cashfree.com/pg/orders`,
       {
-        order_id: orderNumber,   // use your own order number here
+        order_id: orderNumber,
         order_amount: totalAmount,
-        order_currency: "INR",
+        order_currency: 'INR',
         customer_details: {
           customer_id: userId || visitorId,
-          customer_name: shippingAddress?.fullName || "",
-          customer_email: shippingAddress?.email || "customerEmail@gmail.com",
-          customer_phone: shippingAddress?.phone || "9999999999",
+          customer_name: shippingAddress?.fullName || '',
+          customer_email: shippingAddress?.email || 'customerEmail@gmail.com',
+          customer_phone: shippingAddress?.phone || '9999999999'
         },
         order_meta: {
-          return_url: "https://application-shoppyness.vercel.app/payment-status?order_id={order_id}",
-          notify_url: "https://shoppyness-backend.onrender.com/api/v1/payment/webhook"
+          return_url: 'http://localhost:4400/payment-status?order_id={order_id}',
+          notify_url: 'http://localhost:4400/api/v1/payment/webhook'
         }
       },
       {
         headers: {
-              "x-client-id": "TEST43174731bcc18792591b7b55e3747134",
-              "x-client-secret": "TEST9515edf6d8b1c6c1768721988ec4dcae903f6ed",
-              "x-api-version": "2025-01-01",
-              "Content-Type": "application/json",
-        },
+          'x-client-id': process.env.CASHFREE_APP_ID || 'TEST_CLIENT_ID',
+          'x-client-secret': process.env.CASHFREE_SECRET_KEY || 'TEST_SECRET',
+          'x-api-version': process.env.CASHFREE_API_VERSION || '2025-01-01',
+          'Content-Type': 'application/json'
+        }
       }
-  );
-    order.cashfreeOrderId = response.data.cf_order_id;
-    await order.save();
+    );
 
     const paymentLink = response.data.payments?.url;
     const payment_session_id = response.data.payment_session_id;
 
-    // Update DB with payment link
-    order.paymentLink = paymentLink;
-    await order.save();
-      // 🔻 Deduct stock
-    for (let item of items) {
-      if (item.variantId) {
-        await Product.updateOne(
-          { id: item.product, "variants.id": item.variantId },
-          // { $inc: { "variants.$.stock": -item.quantity } }
-        );
-      }
-    }
-    await Cart.findOneAndDelete({ userId });
+    // Update order with cashfree info (store cf_order_id)
+    await prisma.order.update({ where: { id: createdOrder.id }, data: { cashfreeOrderId: response.data.cf_order_id } });
+
+    // TODO: Deduct stock (implement inventory service)
+
+    // Clear cart for user
+    if (userId) await prisma.cart.deleteMany({ where: { userId: Number(userId) } });
+
     res.json({ success: true, paymentLink, payment_session_id, orderNumber });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: "Order creation failed", error: err.message });
+    res.status(500).json({ success: false, message: 'Order creation failed', error: err.message });
   }
 };
 
 export const getAllOrders = async (req, res) => {
     try {
-        // Pagination
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-        // Sorting
-        const sortBy = req.query.sortBy || 'orderDate';
-        const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
-        
-        // Filtering
-        const filterQuery = {};
-        
-        if (req.query.orderStatus) {
-            filterQuery.orderStatus = req.query.orderStatus;
+    // Sorting
+    const sortBy = req.query.sortBy || 'createdAt';
+    const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
+
+    // Build Prisma where filter
+    const where = {};
+    if (req.query.orderStatus) where.orderStatus = req.query.orderStatus;
+    if (req.query.paymentStatus) where.paymentStatus = req.query.paymentStatus;
+    if (req.query.paymentMethod) where.paymentMethod = req.query.paymentMethod;
+    if (req.query.startDate && req.query.endDate) where.createdAt = { gte: new Date(req.query.startDate), lte: new Date(req.query.endDate) };
+    if (req.query.minPrice || req.query.maxPrice) {
+      where.totalAmount = {};
+      if (req.query.minPrice) where.totalAmount.gte = parseFloat(req.query.minPrice);
+      if (req.query.maxPrice) where.totalAmount.lte = parseFloat(req.query.maxPrice);
+    }
+    if (req.query.orderNumber) where.orderNumber = { contains: req.query.orderNumber };
+
+    const include = {
+      user: { select: { username: true, email: true, phone: true } },
+      items: true,
+      address: true,
+      tracking: true,
+      refund: true
+    };
+
+    const [orders, totalOrders, stats, orderStatusStats, paymentStatusStats] = await Promise.all([
+      prisma.order.findMany({ where, include, skip, take: limit, orderBy: { [sortBy]: sortOrder } }),
+      prisma.order.count({ where }),
+      prisma.order.aggregate({ where, _sum: { totalAmount: true }, _avg: { totalAmount: true }, _count: { _all: true } }),
+      prisma.order.groupBy({ by: ['orderStatus'], where, _count: { _all: true } }),
+      prisma.order.groupBy({ by: ['paymentStatus'], where, _count: { _all: true } })
+    ]);
+
+    const totalPages = Math.ceil(totalOrders / limit);
+
+    res.json({
+      success: true,
+      data: {
+        orders,
+        pagination: { page, limit, totalPages, totalOrders, hasNext: page < totalPages, hasPrev: page > 1 },
+        statistics: {
+          totalRevenue: stats._sum?.totalAmount || 0,
+          averageOrderValue: stats._avg?.totalAmount || 0,
+          totalOrders: stats._count?._all || totalOrders,
+          orderStatusStats,
+          paymentStatusStats
         }
-        
-        if (req.query.paymentStatus) {
-            filterQuery.paymentStatus = req.query.paymentStatus;
-        }
-        
-        if (req.query.paymentMethod) {
-            filterQuery.paymentMethod = req.query.paymentMethod;
-        }
-        
-        if (req.query.startDate && req.query.endDate) {
-            filterQuery.orderDate = {
-                $gte: new Date(req.query.startDate),
-                $lte: new Date(req.query.endDate)
-            };
-        }
-
-        // if (req.query.userId) {
-        //     filterQuery.user = req.query.userId;
-        // }
-        
-        if (req.query.minPrice || req.query.maxPrice) {
-            filterQuery.totalPrice = {};
-            if (req.query.minPrice) {
-                filterQuery.totalPrice.$gte = parseFloat(req.query.minPrice);
-            }
-            if (req.query.maxPrice) {
-                filterQuery.totalPrice.$lte = parseFloat(req.query.maxPrice);
-            }
-        }
-
-        if (req.query.orderNumber) {
-            filterQuery.orderNumber = { $regex: req.query.orderNumber, $options: 'i' };
-        }
-
-        // Build query with population
-        const orders = await Order.find(filterQuery)
-            .populate({
-                path: 'user',
-                select: 'username email phone'
-            })
-            .populate({
-                path: 'items.product',
-                select: 'name price thumbnail sku'
-            })
-            .sort({ [sortBy]: sortOrder })
-            .skip(skip)
-            .limit(limit);
-
-        // Get total count
-        const totalOrders = await Order.countDocuments(filterQuery);
-        const totalPages = Math.ceil(totalOrders / limit);
-
-        // Calculate statistics
-        const stats = await Order.aggregate([
-            { $match: filterQuery },
-            {
-                $group: {
-                    _id: null,
-                    totalRevenue: { $sum: '$totalPrice' },
-                    averageOrderValue: { $avg: '$totalPrice' },
-                    totalOrders: { $sum: 1 }
-                }
-            }
-        ]);
-
-        const orderStatusStats = await Order.aggregate([
-            { $match: filterQuery },
-            { $group: { _id: '$orderStatus', count: { $sum: 1 } } }
-        ]);
-
-        const paymentStatusStats = await Order.aggregate([
-            { $match: filterQuery },
-            { $group: { _id: '$paymentStatus', count: { $sum: 1 } } }
-        ]);
-
-        res.json({
-            success: true,
-            data: {
-                orders,
-                pagination: {
-                    page,
-                    limit,
-                    totalPages,
-                    totalOrders,
-                    hasNext: page < totalPages,
-                    hasPrev: page > 1
-                },
-                statistics: {
-                    totalRevenue: stats[0]?.totalRevenue || 0,
-                    averageOrderValue: stats[0]?.averageOrderValue || 0,
-                    totalOrders: stats[0]?.totalOrders || 0,
-                    orderStatusStats,
-                    paymentStatusStats
-                }
-            }
-        });
+      }
+    });
 
     } catch (error) {
         console.error('Get orders error:', error);
@@ -255,42 +176,27 @@ export const getAllOrders = async (req, res) => {
 
 export const getOrderById = async (req, res) => {
     try {
-        const { orderId } = req.params;
-        const userId = req.user._id;
 
-        if (!validateObjectId(orderId)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Valid order ID is required'
-            });
-        }
+    const { orderId } = req.params;
+    const requesterId = req.user?._id || req.user?.id || req.user?.userId;
 
-        const order = await Order.findById(orderId)
-            .populate('user', 'name email phone')
-            .populate({
-                path: 'items.product',
-                select: 'name price thumbnail sku description'
-            });
+    // Try numeric id first, else try orderNumber
+    let order = null;
+    if (!isNaN(Number(orderId))) {
+      const idNum = Number(orderId);
+      order = await prisma.order.findUnique({ where: { id: idNum }, include: { user: { select: { username: true, email: true, phone: true, id: true } }, items: true, address: true, tracking: true, refund: true } });
+    } else {
+      order = await prisma.order.findFirst({ where: { orderNumber: orderId }, include: { user: { select: { username: true, email: true, phone: true, id: true } }, items: true, address: true, tracking: true, refund: true } });
+    }
 
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Order not found'
-            });
-        }
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
-        // Check if user can access this order
-        if (order.user._id.toString() !== userId.toString() && req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Access denied'
-            });
-        }
+    // Check access: allow user owner or admin
+    if (order.userId && String(order.userId) !== String(requesterId) && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
-        res.json({
-            success: true,
-            data: order
-        });
+    res.json({ success: true, data: order });
 
     } catch (error) {
         console.error('Get order error:', error);
@@ -306,74 +212,41 @@ export const getOrderByIdAdmin = async (req, res) => {
   try {
     const { orderId } = req.params;
 
-    if (!validateObjectId(orderId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid order ID"
-      });
+    // Admin view: support numeric id or orderNumber
+    let adminOrder = null;
+    if (!isNaN(Number(orderId))) {
+      adminOrder = await prisma.order.findUnique({ where: { id: Number(orderId) }, include: { user: { select: { username: true, email: true, phone: true, role: true, createdAt: true, id: true } }, items: true, address: true, tracking: true, refund: true } });
+    } else {
+      adminOrder = await prisma.order.findFirst({ where: { orderNumber: orderId }, include: { user: { select: { username: true, email: true, phone: true, role: true, createdAt: true, id: true } }, items: true, address: true, tracking: true, refund: true } });
     }
 
-    // Fetch full order with product & user
-    const order = await Order.findById(orderId)
-      .populate("user", "name email phone role createdAt")
-      .populate({
-        path: "items.product",
-        select: "name price images sku description stock"
-      })
-      .lean();
+    if (!adminOrder) return res.status(404).json({ success: false, message: 'Order not found' });
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found"
-      });
-    }
+    // Summary
+    const totalItems = adminOrder.items?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0;
+    const totalPrice = adminOrder.items?.reduce((sum, i) => sum + (i.price || 0) * (i.quantity || 0), 0) || 0;
 
-    // --------------------------------
-    // 📦 Summary (based on your fields)
-    // --------------------------------
-    const totalItems = order.items?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0;
-
-    const totalPrice = order.items?.reduce((sum, i) =>
-      sum + (i.price || 0) * (i.quantity || 0), 0
-    ) || 0;
-
-    order.summary = {
-      orderNumber: order.orderNumber,
+    const summary = {
+      orderNumber: adminOrder.orderNumber,
       totalItems,
       totalPrice,
-      paymentMethod: order.paymentMethod,
-      paymentStatus: order.paymentStatus,
-      orderStatus: order.orderStatus,
-      createdAt: order.createdAt,
+      paymentMethod: adminOrder.paymentMethod,
+      paymentStatus: adminOrder.paymentStatus,
+      orderStatus: adminOrder.orderStatus,
+      createdAt: adminOrder.createdAt,
     };
 
-    // --------------------------------
-    // 🚚 Tracking Status Summary
-    // --------------------------------
-    if (Array.isArray(order.tracking)) {
-      order.trackingSummary =
-        order.tracking.find(t => t.completed) || order.tracking[0];
-    }
+    // Tracking summary
+    let trackingSummary = null;
+    if (Array.isArray(adminOrder.tracking)) trackingSummary = adminOrder.tracking.find(t => t.completed) || adminOrder.tracking[0];
 
-    // --------------------------------
-    // 🧭 Admin Info
-    // --------------------------------
-    order.adminView = true;
+    const result = Object.assign({}, adminOrder, { summary, trackingSummary, adminView: true });
 
-    return res.json({
-      success: true,
-      data: order
-    });
+    return res.json({ success: true, data: result });
 
   } catch (error) {
     console.error("Admin Get Order Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to retrieve order",
-      error: error.message
-    });
+    return res.status(500).json({ success: false, message: 'Failed to retrieve order', error: error.message });
   }
 };
 
@@ -382,35 +255,30 @@ export const updateOrderTracking = async (req, res, next) => {
     const { orderId } = req.params;
     const { status } = req.query;
 
-    const order = await Order.findById(orderId);
-    if (!order) return res.status(404).json({ message: "Order not found" });
+    // Support numeric id or orderNumber
+    let orderRec = null;
+    if (!isNaN(Number(orderId))) orderRec = await prisma.order.findUnique({ where: { id: Number(orderId) } });
+    else orderRec = await prisma.order.findFirst({ where: { orderNumber: orderId } });
+    if (!orderRec) return res.status(404).json({ message: 'Order not found' });
 
-    const tracking = order.tracking;
-    const statusIndex = tracking.findIndex(step => step.key === status);
+    const orderIdNum = orderRec.id;
+    const tracks = await prisma.orderTracking.findMany({ where: { orderId: orderIdNum }, orderBy: { id: 'asc' } });
+    const statusIndex = tracks.findIndex(step => step.stepKey === status);
+    if (statusIndex === -1) return res.status(400).json({ message: 'Invalid status' });
 
-    if (statusIndex === -1) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-
-    // 1️⃣ Auto-complete all PREVIOUS steps
+    // Update all steps up to statusIndex
+    const updates = [];
     for (let i = 0; i <= statusIndex; i++) {
-      if (!tracking[i].completed) {
-        tracking[i].completed = true;
-        tracking[i].completedAt = new Date();
+      if (!tracks[i].completed) {
+        updates.push(prisma.orderTracking.update({ where: { id: tracks[i].id }, data: { completed: true, completedAt: new Date() } }));
       }
     }
+    await Promise.all(updates);
 
-    // 2️⃣ Update main order status
-    order.orderStatus = status;
-    // 3️⃣ Save order
-    await order.save();
+    const updatedOrder = await prisma.order.update({ where: { id: orderIdNum }, data: { orderStatus: status } });
+    const updatedTracks = await prisma.orderTracking.findMany({ where: { orderId: orderIdNum }, orderBy: { id: 'asc' } });
 
-    return res.json({
-      success: true,
-      message: `Order updated to ${status}`,
-      orderStatus: order.orderStatus,
-      tracking: order.tracking
-    });
+    return res.json({ success: true, message: `Order updated to ${status}`, orderStatus: updatedOrder.orderStatus, tracking: updatedTracks });
 
   } catch (error) {
     next(error);
@@ -423,67 +291,35 @@ export const cancelOrder = async (req, res) => {
     try {
         const { orderId } = req.params;
         const { reason } = req.body;
-        const userId = await getIds(req);
-        console.log('order id', orderId);
-        
-        const order = await Order.findOne({
-          orderNumber: orderId,
-          user: userId.userId
-        });
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Order not found'
-            });
-        }
-        // Check if user can cancel this order
-        if (order.user.toString() !== userId.userId.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: 'Access denied'
-            });
-        }
+    const ids = await getIds(req);
+    const requesterId = req.user?._id || req.user?.id || req.user?.userId;
 
-        console.log('order status', order.orderStatus);
-        if(orderStatus === 'cancelled'){
-             return res.status(400).json({
-                success: false,
-                message: 'Order alredy cancelled'
-            });
-        }
-        // Check if order can be cancelled
-        const cancellableStatuses = ['placed', 'confirmed'];
-        if (!cancellableStatuses.includes(order.orderStatus)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Order cannot be cancelled at this stage'
-            });
-        }
+    const order = await prisma.order.findFirst({ where: { orderNumber: orderId } });
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
-        const step = order.tracking.filter(s => {
-          if( s.key === 'cancelled'){
-            s.completed = true;
-            s.completedAt = new Date();
-          }
-        });
-        if (!step) return res.status(400).json({ message: "Invalid status" });
-        
-        order.orderStatus = 'cancelled';
-        order.cancelReason = reason;
-        console.log('order table', order);
-      
-        await order.save();
+    // Check if user can cancel this order (owner or admin)
+    if (order.userId && String(order.userId) !== String(requesterId) && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
-        res.json({
-            success: true,
-            message: 'Order cancelled successfully',
-            data: {
-                orderId: order._id,
-                orderNumber: order.orderNumber,
-                status: order.orderStatus,
-                tracking: order.tracking,
-            }
-        });
+    if (order.orderStatus === 'cancelled') return res.status(400).json({ success: false, message: 'Order already cancelled' });
+
+    // Check if order can be cancelled
+    const cancellableStatuses = ['placed', 'confirmed'];
+    if (!cancellableStatuses.includes(order.orderStatus)) return res.status(400).json({ success: false, message: 'Order cannot be cancelled at this stage' });
+
+    // Update tracking: mark cancelled step completed in OrderTracking table
+    const tracks = await prisma.orderTracking.findMany({ where: { orderId: order.id }, orderBy: { id: 'asc' } });
+    const cancelStep = tracks.find(t => t.stepKey === 'cancelled' || t.stepKey === 'cancel');
+    if (!cancelStep) return res.status(400).json({ message: 'Invalid status' });
+
+    await prisma.orderTracking.update({ where: { id: cancelStep.id }, data: { completed: true, completedAt: new Date() } });
+
+    const updated = await prisma.order.update({ where: { id: order.id }, data: { orderStatus: 'cancelled', cancelReason: reason || null } });
+
+    const updatedTracks = await prisma.orderTracking.findMany({ where: { orderId: order.id }, orderBy: { id: 'asc' } });
+
+    res.json({ success: true, message: 'Order cancelled successfully', data: { orderId: updated.id, orderNumber: updated.orderNumber, status: updated.orderStatus, tracking: updatedTracks } });
 
     } catch (error) {
         console.error('Cancel order error:', error);
@@ -503,53 +339,28 @@ export const cancelOrder = async (req, res) => {
  */
 export const getUserOrders = async (req, res) => {
     try {
-        const userId = req.params.id;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+    const userId = req.params.id || req.user?.id || req.user?._id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-        const filterQuery = { user: userId };
-        
-        if (req.query.status) {
-            filterQuery.orderStatus = req.query.status;
-        }
+    const where = { userId: Number(userId) };
+    if (req.query.status) where.orderStatus = req.query.status;
 
-        const orders = await Order.find(filterQuery)
-            .populate({
-                path: 'items.product',
-                select: 'name price thumbnail sku'
-            })
-            .sort({ orderDate: -1 })
-            .skip(skip)
-            .limit(limit);
+    const [orders, totalOrders] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: { items: true, address: true },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit
+      }),
+      prisma.order.count({ where })
+    ]);
 
-        const totalOrders = await Order.countDocuments(filterQuery);
-        const totalPages = Math.ceil(totalOrders / limit);
+    const totalPages = Math.ceil(totalOrders / limit);
 
-        // Get user statistics
-        // const stats = await Order.getStatistics(userId);
-
-        res.json({
-            success: true,
-            data: {
-                orders,
-                pagination: {
-                    page,
-                    limit,
-                    totalPages,
-                    totalOrders,
-                    hasNext: page < totalPages,
-                    hasPrev: page > 1
-                },
-                // statistics: stats[0] || {
-                //     totalOrders: 0,
-                //     totalSpent: 0,
-                //     averageOrderValue: 0,
-                //     pendingOrders: 0,
-                //     deliveredOrders: 0
-                // }
-            }
-        });
+    res.json({ success: true, data: { orders, pagination: { page, limit, totalPages, totalOrders, hasNext: page < totalPages, hasPrev: page > 1 } } });
 
     } catch (error) {
         console.error('Get user orders error:', error);
@@ -563,20 +374,16 @@ export const getUserOrders = async (req, res) => {
 
 export const orderStatus = async (req, res) => {
     try {  
-      const { orderId } = req.params.id;
-      const userId = req.params.userId;
+    const orderId = req.params.id;
+    const userId = req.params.userId || req.user?.id || req.user?._id;
 
-        // const order = await Order.find({ user: userId, orderNumber: orderId }).select('orderStatus statusUpdatedAt');
-        // const statuses = Order.schema.path('orderStatus').enumValues;
-        const order = await Order.find({ user: userId });
-        const findOrder = await order.filter(o => o.id === orderId);
-        if (!findOrder) {
-            return res.status(404).json({
-                success: false,
-                message: 'Order not found'
-            });
-        }
-        res.json({ success: true, data: findOrder });
+    const where = { orderNumber: orderId };
+    if (userId) where.userId = Number(userId);
+
+    const order = await prisma.order.findFirst({ where });
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    res.json({ success: true, data: order });
     } catch (error) {
         console.error('Get order statuses error:', error);
         res.status(500).json({
@@ -590,26 +397,21 @@ export const orderStatus = async (req, res) => {
 export const getOrderByOrderNumber = async (req, res, next) => {
   try {
     const orderId = req.params.id;
-    const order = await Order.findOne({ orderNumber: orderId }).lean();
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order not found',
-      });
-    }
+    const order = await prisma.order.findFirst({ where: { orderNumber: orderId }, include: { items: true } });
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
     return res.json({
       success: true,
       orderId: order.orderNumber,
-      status: order.paymentStatus, // 'pending' | 'success' | 'failed'
+      status: order.paymentStatus,
       amount: order.totalAmount,
       currency: 'INR',
       transactionId: order.transactionId,
       paymentMessage: order.paymentMessage,
       paymentTime: order.paymentTime,
-      paymentSessionId: order.paymentSessionId,
+      paymentSessionId: order.paymentSessionId || order.paymentSessionId,
       items: order.items?.map((it) => ({
-        productId: it.product?.toString(),
+        productId: it.productId?.toString(),
         name: it.name,
         price: it.price,
         quantity: it.quantity,
@@ -627,21 +429,19 @@ export const getOrderByOrderNumber = async (req, res, next) => {
  
 export const getOrderTracking = async (req, res, next) => {
   try {
-    const { orderId } = req.params;    
-    const order = await Order.findById(orderId);
-    
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
-    }
+    const { orderId } = req.params;
 
-    res.status(200).json({
-      success: true,
-       payload: {
-        orderStatus: order.orderStatus,
-        tracking: order.tracking,
-        orderNumber: order.orderNumber
-      }
-    });
+    let order = null;
+    if (!isNaN(Number(orderId))) {
+      order = await prisma.order.findUnique({ where: { id: Number(orderId) } });
+    }
+    if (!order) order = await prisma.order.findFirst({ where: { orderNumber: orderId } });
+
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    const tracks = await prisma.orderTracking.findMany({ where: { orderId: order.id }, orderBy: { id: 'asc' } });
+
+    res.status(200).json({ success: true, payload: { orderStatus: order.orderStatus, tracking: tracks, orderNumber: order.orderNumber } });
 
   } catch (error) {
     next(error);
@@ -652,16 +452,13 @@ export const refundOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { amount, reason } = req.body;
-    // console.log('amount', amount);
-    
     const refundAmount = Number(amount);
+    
     if (!refundAmount || refundAmount <= 0) {
       return res.status(400).json({ success: false, message: "Invalid refund amount" });
     }
-
     // Get order
-   const order = await Order.findOne({ orderNumber: orderId });
-    // console.log('orderrrr', order);
+    const order = await prisma.order.findFirst({ where: { orderNumber: orderId }, include: { items: true } });
     
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
@@ -684,14 +481,8 @@ export const refundOrder = async (req, res) => {
     }
 
     // Validate based on item price
-    const itemTotal = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-
-    if (refundAmount > itemTotal) {
-      return res.status(400).json({
-        success: false,
-        message: `Refund cannot exceed item total price ₹${itemTotal}`
-      });
-    }
+    const itemTotal = (order.items || []).reduce((sum, i) => sum + (Number(i.price || 0) * Number(i.quantity || 0)), 0);
+    if (refundAmount > itemTotal) return res.status(400).json({ success: false, message: `Refund cannot exceed item total price ₹${itemTotal}` });
 
     // Must have cashfreeOrderId stored earlier
     // if (!order.cashfreeOrderId) {
@@ -708,9 +499,9 @@ export const refundOrder = async (req, res) => {
     const cashfreeURL = `${process.env.CASHFREE_BASE_URL}/orders/${order.orderNumber}/refunds`;
 
     const payload = {
-      refund_amount: 100,
-      refund_id: 'refund_00912',
-      refund_note: 'refund note for reference',
+      refund_amount: refundAmount,
+      refund_id: refundId,
+      refund_note: reason || 'refund processed by admin',
       refund_speed: 'STANDARD'
     };
 
@@ -720,35 +511,15 @@ export const refundOrder = async (req, res) => {
       "x-api-version":  process.env.CASHFREE_API_VERSION,
       "Content-Type": "application/json"
     };
-    // console.log('ashfreeURL, payload, { headers }', cashfreeURL, payload, { headers });
-    
+
     const response = await axios.post(cashfreeURL, payload, { headers });
-    console.log('refund response', response.data)
-    if (!response.data || response.data.status !== "SUCCESS") {
-      return res.status(400).json({
-        success: false,
-        message: "Cashfree refund failed",
-        data: response.data
-      });
-    }
+    if (!response.data || response.data.status !== 'SUCCESS') return res.status(400).json({ success: false, message: 'Cashfree refund failed', data: response.data });
 
-    // Save refund info in order
-    order.refund = {
-      amount: refundAmount,
-      reason: reason || "Refund processed",
-      refundedAt: new Date(),
-      cashfreeRefundId: refundId
-    };
-    order.paymentStatus = "refunded";
+    // Save refund info in OrderRefund table and update order status
+    await prisma.orderRefund.create({ data: { orderId: order.id, amount: refundAmount, reason: reason || 'Refund processed', refundedAt: new Date(), cashfreeRefundId: refundId } });
+    const updated = await prisma.order.update({ where: { id: order.id }, data: { paymentStatus: 'refunded' } });
 
-    await order.save();
-
-    return res.json({
-      success: true,
-      message: `Refund ₹${refundAmount} processed successfully`,
-      refund: order.refund,
-      cashfree: response.data
-    });
+    return res.json({ success: true, message: `Refund ₹${refundAmount} processed successfully`, refund: { amount: refundAmount, reason }, cashfree: response.data });
 
   } catch (error) {
     console.error("Refund Error:", error);
