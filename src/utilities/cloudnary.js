@@ -2,9 +2,10 @@ import { v2 as cloudinary } from 'cloudinary';
 import fs from "fs";
 import { CLOUD_KEY, CLOUD_NAME, CLOUD_SECRET_KEY } from '../../config/env.js';
 
-
-// Configuration
-cloudinary.config({ 
+/* ----------------------------------
+1. Cloudinary Configuration
+---------------------------------- */
+cloudinary.config({
     cloud_name: CLOUD_NAME, 
     api_key: CLOUD_KEY, 
     api_secret: CLOUD_SECRET_KEY,
@@ -53,39 +54,19 @@ const uploadFile = async (file) => {
     }
 };
 
-const uploadFiles = async (files) => {    
-    try {
-        if (!files || files.length === 0) return null;
-        const urls = [];
-        for (const file of files) {
-            try {
-                const result = await cloudinary.uploader.upload(file.path);
-                let imageRes = {
-                    url: result.url,
-                    public_id: result.public_id
-                }
-                urls.push(imageRes);
-                // Delete local file after successful upload
-                if (fs.existsSync(file.path)) {
-                    fs.unlinkSync(file.path);
-                }
-            } catch (uploadError) {
-                console.error(`Error uploading file ${file.originalname}:`, uploadError);
-            }
-        }
-
-        return urls.length > 0 ? urls : null;
-    } catch (error) {
-        return error;
-    }
+/* ----------------------------------
+3. Upload MULTIPLE files
+---------------------------------- */
+const uploadFiles = async (files = []) => {
+	if (!Array.isArray(files) || files.length === 0) return [];
+	return urls.length > 0 ? urls : null;
+}
+const deleteFile = async (publicId) => {
+	try {
+		return await cloudinary.uploader.destroy(publicId);
+	} catch (error) {
+		throw new Error(`File deleting failed:${error.message}`);
+	}
 };
 
-
-const deleteFile = async(publicId) =>{    
-    try {
-        return await cloudinary.uploader.destroy(publicId);
-    } catch (error) {
-        throw new Error(`File deleting failed:${error.message}`);
-    }
-}
 export { uploadFile, uploadFiles, deleteFile };
