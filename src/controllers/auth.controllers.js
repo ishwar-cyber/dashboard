@@ -74,7 +74,7 @@ export const signIn = async(req, res, next)=>{
             message: 'User signed in successfully',
             token,
             user:{
-                _id: user.id,
+                id: user.id,
                 email: user.email,
                 username: user.username,
                 name: user.name,
@@ -122,11 +122,10 @@ export const userSignIn = async (req, res, next) => {
       message: "User signed in successfully",
       token,
       user: {
-        _id: user.id,
+        id: user.id,
         email: user.email,
         username: user.username,
         name: user.name,
-        role: user.role,
       },
     });
   } catch (error) {
@@ -162,7 +161,7 @@ const mergeCartAfterLogin = async (userId, visitorId) => {
             name: vItem.name,
             price: vItem.price,
             quantity: vItem.quantity,
-            images: { create: vItem.images ? vItem.images.map((img) => ({ url: img.url || img })) : [] },
+            images: { create: vItem.images ? vItem.images.map((img) => ({ url: img.url || img, publicId:img.publicId })) : [] },
           },
         });
     }

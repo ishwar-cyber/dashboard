@@ -1,6 +1,8 @@
 import {
   createBrand,
   getAllBrands,
+  getBrandById,
+  deleteBrandById
 } from "../services/brand.service.js";
 import prisma from "../config/prisma.js";
 import { deleteFile } from "../utilities/cloudnary.js";

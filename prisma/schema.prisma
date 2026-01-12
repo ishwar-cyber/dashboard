@@ -201,7 +201,7 @@ model Product {
   warranties      ProductWarranty[]
   pincodes        ProductPincode[]
   tags            ProductTag[]
-
+  cartItems       CartItem[]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -341,6 +341,7 @@ model CartItem {
   id              Int      @id @default(autoincrement())
   cartId          Int
   productId       Int
+  product         Product @relation(fields: [productId], references: [id])
   variantId       Int?
   name            String
 
@@ -363,6 +364,7 @@ model CartItem {
 model CartItemImage {
   id         Int      @id @default(autoincrement())
   url        String
+  publicId   String
   cartItemId Int
 
   cartItem   CartItem @relation(fields: [cartItemId], references: [id], onDelete: Cascade)

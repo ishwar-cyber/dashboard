@@ -1,7 +1,7 @@
 import { JWT_SECRET } from "../../config/env.js";
 import jwt from "jsonwebtoken";
 // Helper to get IDs
-export async function getIds1(req) {
+export async function getIds(req) {
   try {
     let userId = null;
     let visitorId = null;
@@ -42,15 +42,20 @@ export async function getIds1(req) {
   }
 }
 
-export const getIds = async (req) => {
+export const getIds1 = async (req) => {
   let userId = null;
   let visitorId = null;
 
+  
   // 1️⃣ Try JWT (optional)
   try {
-    if (req.headers.authorization) {
-      const token = req.headers.authorization.split(" ")[1];
+    if (req.cookies.authToken || req.headers.authorization) {
+      const token = req.cookies.authToken.split(" ")[1] || req.headers.authorization.split(" "[1]);
+    console.log('user auth', token);
+      
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('decocdeee', decoded);
+      
       userId = decoded.id;
     }
   } catch (err) {
@@ -67,6 +72,17 @@ export const getIds = async (req) => {
     });
   } else {
     visitorId = req.cookies.visitorId;
+  }
+  console.log('userrrrr is', userId);
+  
+  return { userId, visitorId };
+};
+
+export const getCartOwner = async (req) => {
+  const { userId, visitorId } = await getIds(req);
+
+  if (!userId && !visitorId) {
+    throw new Error('User or Visitor ID is required');
   }
 
   return { userId, visitorId };

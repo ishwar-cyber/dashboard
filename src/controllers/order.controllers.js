@@ -5,8 +5,9 @@ import { generateOrderNumber } from '../utilities/orderNumber.js';
 import axios from "axios";
 export const createOrder = async (req, res) => {
   try {
-    const { userId, visitorId } = await getIds(req);
+    const { userId, visitorId } = await getIds(req);    
     const orderNumber = await generateOrderNumber();
+
     const { items, shippingAddress, paymentMethod, totalAmount, couponDiscount } = req.body;
 
     if (!userId) return res.status(400).json({ success: false, message: 'User ID is required' });
@@ -61,6 +62,7 @@ export const createOrder = async (req, res) => {
       }
     });
 
+    
     // Call Cashfree API
     const response = await axios.post(
       `https://sandbox.cashfree.com/pg/orders`,
@@ -94,8 +96,6 @@ export const createOrder = async (req, res) => {
 
     // Update order with cashfree info (store cf_order_id)
     await prisma.order.update({ where: { id: createdOrder.id }, data: { cashfreeOrderId: response.data.cf_order_id } });
-
-    // TODO: Deduct stock (implement inventory service)
 
     // Clear cart for user
     if (userId) await prisma.cart.deleteMany({ where: { userId: Number(userId) } });

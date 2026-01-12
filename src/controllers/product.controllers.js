@@ -44,24 +44,15 @@ export const create = async (req, res) => {
     const b = req.body;
 
     const productData = {
-      /* ======================
-         BASIC FIELDS
-      ====================== */
       name: b.name,
       slug: slugify(b.name, { lower: true, strict: true }),
       description: b.description,
       sku: b.sku || null,
 
-      /* ======================
-         FLAGS
-      ====================== */
       status: b.status === true || b.status === "true",
       featured: b.featured === true || b.featured === "true",
       bestSeller: b.bestSeller === true || b.bestSeller === "true",
 
-      /* ======================
-         NUMBERS
-      ====================== */
       price: Number(b.price),
       discount: Number(b.discount || 0),
       stock: Number(b.stock || 0),
@@ -74,86 +65,17 @@ export const create = async (req, res) => {
       width: Number(b.width),
       height: Number(b.height),
 
-      /* ======================
-         RELATION IDS (ONLY THESE)
-      ====================== */
-      categoryId: Number(b.category),
-      subCategoryId: Number(b.subCategory),
-      brandId: Number(b.brand),
+      categoryId: Number(b.categoryId),
+      subCategoryId: Number(b.subCategoryId),
+      brandId: Number(b.brandId),
 
-      /* ======================
-         CHILD TABLES (OPTIONAL)
-      ====================== */
-      ...(Array.isArray(b.images) && b.images.length > 0 && {
-        images: {
-          create: b.images.map(img => ({
-            url: img.url,
-            publicId: img.public_id || img.publicId
-          }))
-        }
-      }),
-
-      ...(Array.isArray(b.variants) && b.variants.length > 0 && {
-        variants: {
-          create: b.variants.map(v => ({
-            name: v.name,
-            sku: v.sku,
-            price: Number(v.price || 1),
-            stock: v.stock || "in",
-            images: v.images
-              ? {
-                  create: v.images.map(img => ({
-                    url: img.url,
-                    publicId: img.public_id || img.publicId
-                  }))
-                }
-              : undefined
-          }))
-        }
-      }),
-
-      ...(Array.isArray(b.specifications) && b.specifications.length > 0 && {
-        specifications: {
-          create: b.specifications.map(s => ({
-            name: s.name,
-            value: s.value
-          }))
-        }
-      }),
-
-      ...(Array.isArray(b.offerPrices) && b.offerPrices.length > 0 && {
-        offerPrices: {
-          create: b.offerPrices.map(o => ({
-            quantity: Number(o.quantity),
-            price: Number(o.price)
-          }))
-        }
-      }),
-
-      ...(Array.isArray(b.warranties) && b.warranties.length > 0 && {
-        warranties: {
-          create: b.warranties.map(w => ({
-            period: Number(w.period),
-            type: w.type
-          }))
-        }
-      }),
-
-      ...(Array.isArray(b.pincodes) && b.pincodes.length > 0 && {
-        pincodes: {
-          create: b.pincodes.map(p => ({
-            pincode: p
-          }))
-        }
-      }),
-
-      ...(Array.isArray(b.tags) && b.tags.length > 0 && {
-        tags: {
-          create: b.tags.map(t => ({
-            tag: t
-          }))
-        }
-      })
+      images: b.images || [],
+      variants: b.variants || [],
+      specifications: b.specifications || [],
+      offerPrices: b.offerPrices || [],
+      warranties: b.warranties || [],
+      pincodes: b.pincodes || [],
+      tags: b.tags || []
     };
 
     const product = await createProduct(productData);
@@ -172,14 +94,50 @@ export const create = async (req, res) => {
 };
 
 
+
 /* ===============================
    UPDATE PRODUCT
 ================================ */
 export const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
+      const b = req.body;
 
-    const result = await updateProductById(id, req.body);
+    const productData = {
+      name: b.name,
+      slug: slugify(b.name, { lower: true, strict: true }),
+      description: b.description,
+      sku: b.sku || null,
+
+      status: b.status === true || b.status === "true",
+      featured: b.featured === true || b.featured === "true",
+      bestSeller: b.bestSeller === true || b.bestSeller === "true",
+
+      price: Number(b.price),
+      discount: Number(b.discount || 0),
+      stock: Number(b.stock || 0),
+      rating: Number(b.rating || 0),
+
+      serviceCharges: Number(b.serviceCharges || 0),
+
+      weight: Number(b.weight),
+      length: Number(b.length),
+      width: Number(b.width),
+      height: Number(b.height),
+
+      categoryId: Number(b.categoryId),
+      subCategoryId: Number(b.subCategoryId),
+      brandId: Number(b.brandId),
+
+      images: b.images || [],
+      variants: b.variants || [],
+      specifications: b.specifications || [],
+      offerPrices: b.offerPrices || [],
+      warranties: b.warranties || [],
+      pincodes: b.pincodes || [],
+      tags: b.tags || []
+    };
+    const result = await updateProductById(id, productData);
 
     return res.status(200).json({
       success: true,

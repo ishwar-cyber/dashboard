@@ -14,18 +14,11 @@ cloudinary.config({
 
 const uploadFile = async (file) => {   
     try {  
-        console.log('fileeeeeeeeeesssss ');
-        
         if (!file) return null;
-        console.log('fileeeeeeeeeesssss afterrrrrrr', file);
-
         const response = await cloudinary.uploader.upload(file,{
             folder: "products",
             transformation: [{ quality: "auto", fetch_format: "auto" }],
         });
-
-        console.log('productdddddd', response);
-        
          // Generate transformation URLs
         const thumbnail = cloudinary.url(response.public_id, {
         width: 200,

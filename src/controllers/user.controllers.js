@@ -12,7 +12,6 @@ export const getUser = async (req, res, next) => {
         email: true,
         phone: true,
         username: true,
-        role: true,
         createdAt: true,
         updatedAt: true,
         addresses: true,

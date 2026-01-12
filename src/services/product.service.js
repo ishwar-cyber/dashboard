@@ -38,15 +38,15 @@ export const getAllProducts = async (options = {}) => {
         length: true,
         stock: true,
         status: true,
-        specifications: true,
         description: true,
         warranties: true,
         variants: true,
         offerPrices: true,
+        specifications:{select: {id: true, name: true, value: true}},
         images: { take: 1, select: { url: true } },
-        category: { select: { name: true, slug: true } },
-        subCategory: { select: { name: true, slug: true } },
-        brand: { select: { name: true, slug: true } },
+        category: { select: { name: true, slug: true, id: true } },
+        subCategory: { select: { name: true, slug: true, id: true } },
+        brand: { select: { name: true, slug: true, id: true } },
         updatedAt: true
       }
     }),
@@ -91,13 +91,12 @@ export const getProductBySlug = async (slug) => {
   });
 };
 
-/* ===============================
-   CREATE PRODUCT
-================================ */
+
 export const createProduct = async (data) => {
-  // Duplicate protection
-  console.log('wotkinggg', data);
-  
+  if (!data.categoryId || !data.subCategoryId || !data.brandId) {
+    throw new Error("categoryId, subCategoryId and brandId are required");
+  }
+
   const exists = await prisma.product.findFirst({
     where: {
       OR: [
@@ -105,8 +104,7 @@ export const createProduct = async (data) => {
         { slug: data.slug },
         ...(data.sku ? [{ sku: data.sku }] : [])
       ]
-    },
-    select: { id: true }
+    }
   });
 
   if (exists) {
@@ -114,7 +112,83 @@ export const createProduct = async (data) => {
   }
 
   return prisma.product.create({
-    data
+    data: {
+      name: data.name,
+      slug: data.slug,
+      description: data.description,
+      sku: data.sku,
+
+      price: data.price,
+      discount: data.discount,
+      stock: data.stock,
+      rating: data.rating,
+
+      status: data.status,
+      featured: data.featured,
+      bestSeller: data.bestSeller,
+
+      serviceCharges: data.serviceCharges,
+
+      weight: data.weight,
+      length: data.length,
+      width: data.width,
+      height: data.height,
+
+      categoryId: data.categoryId,
+      subCategoryId: data.subCategoryId,
+      brandId: data.brandId,
+
+      images: data.images.length
+        ? { createMany: { data: data.images } }
+        : undefined,
+
+      specifications: data.specifications.length
+        ? { createMany: { data: data.specifications } }
+        : undefined,
+
+      offerPrices: data.offerPrices.length
+        ? {
+            createMany: {
+              data: data.offerPrices.map(o => ({
+                quantity: Number(o.quantity),
+                price: Number(o.price)
+              }))
+            }
+          }
+        : undefined,
+
+      warranties: data.warranties.length
+        ? {
+            createMany: {
+              data: data.warranties.map(w => ({
+                period: Number(w.period),
+                type: w.type
+              }))
+            }
+          }
+        : undefined,
+
+      variants: data.variants.length
+        ? {
+            create: data.variants.map(v => ({
+              name: v.name,
+              sku: v.sku,
+              price: Number(v.price),
+              stock: Number(v.stock),
+              images: v.images?.length
+                ? {
+                    createMany: {
+                      data: v.images.map(img => ({
+                        url: img.url,
+                        publicId: img.publicId
+                      }))
+                    }
+                  }
+                : undefined
+            }))
+          }
+        : undefined
+    }
   });
 };
 
@@ -122,129 +196,63 @@ export const createProduct = async (data) => {
 /* ===============================
    UPDATE PRODUCT (NEW – SAFE)
 ================================ */
-export const updateProductById = async (id, payload) => {
-  const productId = Number(id);
-
+export const updateProductById = async (productId, payload) => {
+  // console.log('update product', productId);
+  const id = Number(productId);
   return prisma.$transaction(async (tx) => {
-    const existing = await tx.product.findUnique({
-      where: { id: productId },
-      select: { id: true }
-    });
-
-    if (!existing) throw new Error('Product not found');
-
-    /* -------------------- PRODUCT UPDATE -------------------- */
+    /* ---------- UPDATE PRODUCT CORE ---------- */
     await tx.product.update({
-      where: { id: productId },
+      where: { id: id},
       data: {
-        ...(payload.name && { name: payload.name }),
-        ...(payload.slug && { slug: payload.slug }),
-
-        ...(payload.price !== undefined && { price: Number(payload.price) }),
-        ...(payload.stock !== undefined && { stock: Number(payload.stock) }),
-
-        ...(toBoolean(payload.status !== undefined) && { status: toBoolean(payload.status) }),
-
-        ...(payload.weight !== undefined && { weight: Number(payload.weight) }),
-        ...(payload.width !== undefined && { width: Number(payload.width) }),
-        ...(payload.height !== undefined && { height: Number(payload.height) }),
-        ...(payload.length !== undefined && { length: Number(payload.length) }),
-
-        ...(payload.serviceCharge !== undefined && {
-          serviceCharge: Number(payload.serviceCharge)
-        }),
-
-        ...(payload.brand && { brandId: Number(payload.brand) }),
-        ...(payload.category && { categoryId: Number(payload.category) }),
-        ...(payload.subCategory && { subCategoryId: Number(payload.subCategory) }),
-
-        ...(payload.description && { description: payload.description })
+        name: payload.name,
+        description: payload.description,
+        price: payload.price,
+        stock: payload.stock,
+        status: payload.status,
+        weight: payload.weight,
+        width: payload.width,
+        height: payload.height,
+        length: payload.length,
+        categoryId: payload.categoryId,
+        subCategoryId: payload.subCategoryId,
+        brandId: payload.brandId
       }
     });
 
-    /* -------------------- PRODUCT IMAGES -------------------- */
-    if (Array.isArray(payload.productImages)) {
-      await tx.productImage.deleteMany({ where: { productId } });
-
-      await tx.productImage.createMany({
-        data: payload.productImages.map((img) => ({
-          productId,
-          url: img.url,
-          publicId: img.publicId
-        }))
-      });
-    }
-
-    /* -------------------- WARRANTY -------------------- */
-    if (payload.warranty) {
-      await tx.warranty.deleteMany({ where: { productId } });
-
-      await tx.warranty.create({
-        data: {
-          productId,
-          period: payload.warranty.period,
-          type: payload.warranty.type
-        }
-      });
-    }
-
-    /* -------------------- SPECIFICATIONS -------------------- */
+    /* ---------- SYNC SPECIFICATIONS ---------- */
     if (Array.isArray(payload.specifications)) {
-      await tx.specification.deleteMany({ where: { productId } });
-
-      await tx.specification.createMany({
-        data: payload.specifications.map((s) => ({
-          productId,
-          name: s.name,
-          value: s.value
-        }))
-      });
+      await syncSpecifications(tx, id, payload.specifications);
     }
 
-    /* -------------------- OFFER PRICE -------------------- */
-    if (Array.isArray(payload.offerPrice)) {
-      await tx.offerPrice.deleteMany({ where: { productId } });
-
-      await tx.offerPrice.createMany({
-        data: payload.offerPrice.map((o) => ({
-          productId,
-          quantity: Number(o.quantity),
-          price: Number(o.price)
-        }))
-      });
+    /* ---------- SYNC OFFER PRICES ---------- */
+    if (Array.isArray(payload.offerPrices)) {
+      await syncOfferPrices(tx, id, payload.offerPrices);
     }
 
-    /* -------------------- VARIANTS -------------------- */
-    if (Array.isArray(payload.variants)) {
-      await tx.variant.deleteMany({ where: { productId } });
+    /* ---------- SYNC WARRANTIES ---------- */
+    if (Array.isArray(payload.warranties)) {
+      console.log('payload', payload.warranties);
+      
+      await syncWarranty(tx, id, payload.warranties);
+    }
 
-      for (const variant of payload.variants) {
-        const createdVariant = await tx.variant.create({
-          data: {
-            productId,
-            name: variant.name,
-            sku: variant.sku,
-            price: Number(variant.price),
-            stock: Number(variant.stock)
-          }
-        });
+    if(Array.isArray(payload.variants)){
+      await syncVariants(tx, id, payload.variants);
+    }
 
-        if (Array.isArray(variant.images)) {
-          await tx.variantImage.createMany({
-            data: variant.images.map((img) => ({
-              variantId: createdVariant.id,
-              url: img.url,
-              publicId: img.publicId
-            }))
-          });
-        }
+
+    return tx.product.findUnique({
+      where: { id: id },
+      include: {
+        specifications: true,
+        offerPrices: true,
+        warranties: true,
+        variants: true,
+        images: true
       }
-    }
-
-    return { success: true, message: 'Product updated successfully' };
+    });
   });
 };
-
 
 /* ===============================
    DELETE PRODUCT (NEW – SAFE)
@@ -540,3 +548,258 @@ export const getProductBySubCategorySlug = async (options = {}) => {
     }
   };
 };
+
+async function syncSpecifications(tx, productId, specs = []) {
+  if (!Array.isArray(specs) || specs.length === 0) return;
+
+  /* 1️⃣ Fetch ALL existing specs */
+  const existingSpecs = await tx.productSpecification.findMany({
+    where: { productId }
+  });
+
+  /* 2️⃣ Build lookup maps */
+  const existingById = new Map(
+    existingSpecs.map(s => [s.id, s])
+  );
+
+  const existingByKey = new Map(
+    existingSpecs.map(s => [
+      `${s.name?.trim()}::${s.value?.trim()}`,
+      s
+    ])
+  );
+
+  /* 3️⃣ UPDATE only if changed */
+  for (const spec of specs) {
+    if (spec.id && existingById.has(spec.id)) {
+      const existing = existingById.get(spec.id);
+
+      const nameChanged =
+        (existing.name || '') !== (spec.name || '');
+      const valueChanged =
+        (existing.value || '') !== (spec.value || '');
+
+      if (nameChanged || valueChanged) {
+        await tx.productSpecification.update({
+          where: { id: spec.id },
+          data: {
+            name: spec.name,
+            value: spec.value
+          }
+        });
+      }
+    }
+  }
+
+  /* 4️⃣ CREATE only truly new specs */
+  const newSpecs = specs.filter(spec => {
+    if (spec.id) return false;
+
+    const key = `${spec.name?.trim()}::${spec.value?.trim()}`;
+    return !existingByKey.has(key);
+  });
+
+  if (newSpecs.length > 0) {
+    await tx.productSpecification.createMany({
+      data: newSpecs.map(spec => ({
+        productId,
+        name: spec.name,
+        value: spec.value
+      }))
+    });
+  }
+}
+
+async function syncOfferPrices(tx, productId, offerPrices = []) {
+  const existingIds = offerPrices.filter(o => o.id).map(o => o.id);
+
+  /* UPDATE existing */
+  for (const o of offerPrices) {
+    if (o.id) {
+      await tx.productOfferPrice.update({
+        where: { id: o.id },
+        data: {
+          quantity: Number(o.quantity),
+          price: Number(o.price)
+        }
+      });
+    }
+  }
+
+  /* CREATE new */
+  const newRows = offerPrices.filter(o => !o.id);
+  if (newRows.length) {
+    await tx.productOfferPrice.createMany({
+      data: newRows.map(o => ({
+        productId,
+        quantity: Number(o.quantity),
+        price: Number(o.price)
+      }))
+    });
+  }
+
+  /* DELETE removed */
+  await tx.productOfferPrice.deleteMany({
+    where: {
+      productId,
+      id: { notIn: existingIds }
+    }
+  });
+}
+
+async function syncWarranty(tx, productId, warranties) {
+ const [warranty] = warranties || [];
+  if (!warranty) return;
+
+  // 1️⃣ Fetch existing warranty (single row)
+  const existing = await tx.productWarranty.findFirst({
+    where: { productId }
+  });
+  // 2️⃣ Update if exists
+  if (existing) {
+    // Optional diff check
+
+    if (
+      existing.period !== Number(warranty.period) ||
+      existing.type !== warranty.type
+    ) {
+      await tx.productWarranty.update({
+        where: { id: existing.id },
+        data: {
+          period: Number(warranty.period),
+          type: warranty.type
+        }
+      });
+    }
+    return;
+  }
+
+  console.log('warranty object', warranty, 'existing', existing);
+  
+  // 3️⃣ Create if not exists
+  await tx.productWarranty.create({
+    data: {
+      productId,
+      period: Number(warranty.period),
+      type: warranty.type
+    }
+  });
+}
+
+async function syncVariantImages(tx, variantId, images = []) {
+  const existingIds = images.filter(i => i.id).map(i => i.id);
+
+  /* UPDATE existing */
+  for (const img of images) {
+    if (img.id) {
+      await tx.productVariantImage.update({
+        where: { id: img.id },
+        data: {
+          url: img.url,
+          publicId: img.publicId
+        }
+      });
+    }
+  }
+
+  /* CREATE new */
+  const newImgs = images.filter(i => !i.id);
+  if (newImgs.length) {
+    await tx.productVariantImage.createMany({
+      data: newImgs.map(i => ({
+        variantId,
+        url: i.url,
+        publicId: i.publicId
+      }))
+    });
+  }
+
+  /* DELETE removed */
+  await tx.productVariantImage.deleteMany({
+    where: {
+      variantId,
+      id: { notIn: existingIds }
+    }
+  });
+}
+
+async function syncVariants(tx, productId, variants = []) {
+  if (!Array.isArray(variants) || variants.length === 0) return;
+
+  /* 1️⃣ Fetch all existing variants */
+  const existingVariants = await tx.productVariant.findMany({
+    where: { productId },
+    include: { images: true }
+  });
+
+  /* 2️⃣ Build lookup maps */
+  const byId = new Map(existingVariants.map(v => [v.id, v]));
+  const bySku = new Map(
+    existingVariants
+      .filter(v => v.sku)
+      .map(v => [v.sku, v])
+  );
+
+  /* 3️⃣ UPDATE only if changed */
+  for (const v of variants) {
+    if (!v.id || !byId.has(v.id)) continue;
+
+    const existing = byId.get(v.id);
+
+    const changed =
+      existing.name !== v.name ||
+      existing.sku !== v.sku ||
+      existing.price !== Number(v.price) ||
+      existing.stock !== Number(v.stock);
+
+    if (changed) {
+      await tx.productVariant.update({
+        where: { id: v.id },
+        data: {
+          name: v.name,
+          sku: v.sku,
+          price: Number(v.price),
+          stock: Number(v.stock)
+        }
+      });
+    }
+
+    /* Sync images only if provided */
+    if (Array.isArray(v.images)) {
+      await syncVariantImages(tx, v.id, v.images);
+    }
+  }
+
+  /* 4️⃣ CREATE only truly new variants */
+  const newVariants = variants.filter(v => {
+    if (v.id) return false;
+    if (v.sku && bySku.has(v.sku)) return false; // prevent duplicate
+    return true;
+  });
+
+  for (const v of newVariants) {
+    const created = await tx.productVariant.create({
+      data: {
+        productId,
+        name: v.name,
+        sku: v.sku,
+        price: Number(v.price),
+        stock: Number(v.stock)
+      }
+    });
+
+    if (Array.isArray(v.images) && v.images.length) {
+      await tx.productVariantImage.createMany({
+        data: v.images.map(img => ({
+          variantId: created.id,
+          url: img.url,
+          publicId: img.publicId
+        }))
+      });
+    }
+  }
+
+  /* ❌ NO DELETE HERE (SAFE UPDATE ONLY) */
+}
+
+
