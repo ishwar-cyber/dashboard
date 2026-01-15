@@ -27,7 +27,7 @@ export const getAllCategories = async (options = {}) => {
           isActive: true,
           createdAt: true,
           image: {
-            select: { url: true }
+            select: { url: true, publicId: true }
           }
         }
       }),
@@ -78,7 +78,6 @@ export const createCategory = async (categoryData) => {
     if (existing) {
       throw new Error("Category with this name or slug already exists");
     }
-
     return await prisma.category.create({
       data: {
         name: categoryData.name,
@@ -87,11 +86,11 @@ export const createCategory = async (categoryData) => {
         metaTitle: categoryData.metaTitle ?? null,
         metaDescription: categoryData.metaDescription ?? null,
 
-        ...(categoryData.image && {
+        ...(categoryData.images && {
           image: {
             create: {
-              url: categoryData.image.url,
-              publicId: categoryData.image.public_id
+              url: categoryData.images[0].url,
+              publicId: categoryData.images[0].public_id
             }
           }
         })
@@ -137,51 +136,70 @@ export const getCategoryByIdOrSlug = async (idOrSlug) => {
    UPDATE CATEGORY (NO UPLOAD)
 ====================================== */
 export const updateCategoryById = async (id, categoryData) => {
+  const categoryId = Number(id);
+  if (Number.isNaN(categoryId)) {
+    throw new Error("Invalid category ID");
+  }
+  console.log('category update', categoryData[0]);
+
+  const parseBoolean = (value) =>
+    value === true || value === "true";
+
   try {
-    const categoryId = Number(id);
+    return await prisma.$transaction(async (tx) => {
+      const existing = await tx.category.findUnique({
+        where: { id: categoryId },
+        select: { id: true }
+      });
 
-    const existing = await prisma.category.findUnique({
-      where: { id: categoryId },
-      select: { id: true }
-    });
-
-    if (!existing) throw new Error("Category not found");
-
-    return await prisma.category.update({
-      where: { id: categoryId },
-      data: {
-        ...(categoryData.name && { name: categoryData.name }),
-        ...(categoryData.slug && { slug: categoryData.slug }),
-        ...(categoryData.isActive !== undefined && {
-          isActive: categoryData.isActive === true || categoryData.isActive === "true"
-        }),
-        ...(categoryData.metaTitle !== undefined && {
-          metaTitle: categoryData.metaTitle
-        }),
-        ...(categoryData.metaDescription !== undefined && {
-          metaDescription: categoryData.metaDescription
-        }),
-
-        ...(categoryData.image && {
-          image: {
-            upsert: {
-              create: {
-                url: categoryData.image.url,
-                publicId: categoryData.image.public_id
-              },
-              update: {
-                url: categoryData.image.url,
-                publicId: categoryData.image.public_id
-              }
-            }
-          }
-        })
+      if (!existing) {
+        throw new Error("Category not found");
       }
+
+      return tx.category.update({
+        where: { id: categoryId },
+        data: {
+          ...(categoryData.name && { name: categoryData.name }),
+          ...(categoryData.slug && { slug: categoryData.slug }),
+
+          ...(categoryData.isActive !== undefined && {
+            isActive: parseBoolean(categoryData.isActive)
+          }),
+
+          ...(categoryData.metaTitle !== undefined && {
+            metaTitle: categoryData.metaTitle
+          }),
+
+          ...(categoryData.metaDescription !== undefined && {
+            metaDescription: categoryData.metaDescription
+          }),
+
+          ...(categoryData.images !== undefined && {
+            image:
+              categoryData.images === null
+                ? { delete: true }
+                : {
+                    upsert: {
+                      create: {
+                        url: categoryData.images[0].url,
+                        publicId: categoryData.images[0].public_id
+                      },
+                      update: {
+                        url: categoryData.images[0].url,
+                        publicId: categoryData.images[0].public_id
+                      }
+                    }
+                  }
+          })
+        }
+      });
     });
   } catch (error) {
-    throw new Error(`Error updating category: ${error.message}`);
+    // Preserve Prisma error context
+    throw error;
   }
 };
+
 
 /* ======================================
    DELETE CATEGORY (TRANSACTION SAFE)
