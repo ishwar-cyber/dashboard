@@ -40,13 +40,21 @@ export const getAllProducts = async (options = {}) => {
         status: true,
         description: true,
         warranties: true,
-        variants: true,
         offerPrices: true,
+
         specifications:{select: {id: true, name: true, value: true}},
-        images: { take: 1, select: { url: true } },
+        images: { take: 5, select: { url: true, publicId: true } },
         category: { select: { name: true, slug: true, id: true } },
         subCategory: { select: { name: true, slug: true, id: true } },
         brand: { select: { name: true, slug: true, id: true } },
+        variants: {
+          select: { id: true, name: true, sku: true, price: true,stock: true, 
+            images: {
+              select: { id: true, url: true, publicId: true }
+            }
+          }
+        },
+
         updatedAt: true
       }
     }),
@@ -197,7 +205,6 @@ export const createProduct = async (data) => {
    UPDATE PRODUCT (NEW – SAFE)
 ================================ */
 export const updateProductById = async (productId, payload) => {
-  // console.log('update product', productId);
   const id = Number(productId);
   return prisma.$transaction(async (tx) => {
     /* ---------- UPDATE PRODUCT CORE ---------- */
@@ -219,6 +226,57 @@ export const updateProductById = async (productId, payload) => {
       }
     });
 
+
+  /* ---------- SYNC PRODUCT IMAGES ---------- */
+  if (Array.isArray(payload.images)) {
+
+    // 1. Get DB images
+    const dbImages = await tx.productImage.findMany({
+      where: { productId: id }
+    });
+
+    const payloadIds = payload.images
+      .filter(img => img.id)
+      .map(img => img.id);
+
+    /* ---------- DELETE REMOVED IMAGES ---------- */
+    await tx.productImage.deleteMany({
+      where: {
+        productId: id,
+        id: { notIn: payloadIds }
+      }
+    });
+
+    /* ---------- UPDATE / CREATE ---------- */
+    for (const img of payload.images) {
+
+      // ❌ skip invalid publicId
+      if (!img.url) continue;
+
+      // UPDATE
+      if (img.id) {
+        await tx.productImage.update({
+          where: { id: img.id },
+          data: {
+            url: img.url,
+            publicId: img.publicId || null
+          }
+        });
+      }
+      // CREATE
+      else {
+        await tx.productImage.create({
+          data: {
+            productId: id,
+            url: img.url,
+            publicId: img.publicId || null
+          }
+        });
+      }
+    }
+  }
+
+
     /* ---------- SYNC SPECIFICATIONS ---------- */
     if (Array.isArray(payload.specifications)) {
       await syncSpecifications(tx, id, payload.specifications);
@@ -230,9 +288,7 @@ export const updateProductById = async (productId, payload) => {
     }
 
     /* ---------- SYNC WARRANTIES ---------- */
-    if (Array.isArray(payload.warranties)) {
-      console.log('payload', payload.warranties);
-      
+    if (Array.isArray(payload.warranties)) {      
       await syncWarranty(tx, id, payload.warranties);
     }
 
@@ -466,9 +522,7 @@ export const getProductByCategorySlug = async (options = {}) => {
 /* =========================================
    GET PRODUCTS BY SUBCATEGORY SLUG
 ========================================= */
-export const getProductBySubCategorySlug = async (options = {}) => {
-  console.log('sub options', options);
-  
+export const getProductBySubCategorySlug = async (options = {}) => {  
   const {
     slug,
     page = 1,
@@ -491,9 +545,7 @@ export const getProductBySubCategorySlug = async (options = {}) => {
       products: [],
       pagination: { page, limit, total: 0, pages: 0 }
     };
-  }
-  console.log('sub category id', subCategory);
-  
+  }  
   const where = {
     status: true,
     subCategoryId: subCategory.id,
@@ -673,8 +725,6 @@ async function syncWarranty(tx, productId, warranties) {
     }
     return;
   }
-
-  console.log('warranty object', warranty, 'existing', existing);
   
   // 3️⃣ Create if not exists
   await tx.productWarranty.create({
@@ -686,96 +736,57 @@ async function syncWarranty(tx, productId, warranties) {
   });
 }
 
-async function syncVariantImages(tx, variantId, images = []) {
-  const existingIds = images.filter(i => i.id).map(i => i.id);
 
-  /* UPDATE existing */
-  for (const img of images) {
-    if (img.id) {
-      await tx.productVariantImage.update({
-        where: { id: img.id },
-        data: {
-          url: img.url,
-          publicId: img.publicId
-        }
-      });
-    }
-  }
 
-  /* CREATE new */
-  const newImgs = images.filter(i => !i.id);
-  if (newImgs.length) {
-    await tx.productVariantImage.createMany({
-      data: newImgs.map(i => ({
-        variantId,
-        url: i.url,
-        publicId: i.publicId
-      }))
-    });
-  }
+export async function syncVariants(tx, productId, variants = []) {
+  if (!Array.isArray(variants)) return;
 
-  /* DELETE removed */
-  await tx.productVariantImage.deleteMany({
-    where: {
-      variantId,
-      id: { notIn: existingIds }
-    }
-  });
-}
-
-async function syncVariants(tx, productId, variants = []) {
-  if (!Array.isArray(variants) || variants.length === 0) return;
-
-  /* 1️⃣ Fetch all existing variants */
-  const existingVariants = await tx.productVariant.findMany({
+  /* 1️⃣ Fetch DB variants */
+  const dbVariants = await tx.productVariant.findMany({
     where: { productId },
     include: { images: true }
   });
 
-  /* 2️⃣ Build lookup maps */
-  const byId = new Map(existingVariants.map(v => [v.id, v]));
-  const bySku = new Map(
-    existingVariants
-      .filter(v => v.sku)
-      .map(v => [v.sku, v])
-  );
+  const dbById = new Map(dbVariants.map(v => [v.id, v]));
+  const payloadIds = variants.filter(v => v.id).map(v => v.id);
 
-  /* 3️⃣ UPDATE only if changed */
+  /* 2️⃣ DELETE REMOVED VARIANTS */
+  const removedIds = dbVariants
+    .map(v => v.id)
+    .filter(id => !payloadIds.includes(id));
+
+  if (removedIds.length) {
+    await tx.productVariantImage.deleteMany({
+      where: { variantId: { in: removedIds } }
+    });
+
+    await tx.productVariant.deleteMany({
+      where: { id: { in: removedIds } }
+    });
+  }
+
+  /* 3️⃣ UPDATE EXISTING VARIANTS */
   for (const v of variants) {
-    if (!v.id || !byId.has(v.id)) continue;
+    if (!v.id || !dbById.has(v.id)) continue;
 
-    const existing = byId.get(v.id);
+    await tx.productVariant.update({
+      where: { id: v.id },
+      data: {
+        name: v.name,
+        sku: v.sku,
+        price: Number(v.price),
+        stock: Number(v.stock)
+      }
+    });
 
-    const changed =
-      existing.name !== v.name ||
-      existing.sku !== v.sku ||
-      existing.price !== Number(v.price) ||
-      existing.stock !== Number(v.stock);
-
-    if (changed) {
-      await tx.productVariant.update({
-        where: { id: v.id },
-        data: {
-          name: v.name,
-          sku: v.sku,
-          price: Number(v.price),
-          stock: Number(v.stock)
-        }
-      });
-    }
-
-    /* Sync images only if provided */
+    /* 4️⃣ SYNC VARIANT IMAGES */
     if (Array.isArray(v.images)) {
       await syncVariantImages(tx, v.id, v.images);
     }
   }
 
-  /* 4️⃣ CREATE only truly new variants */
-  const newVariants = variants.filter(v => {
-    if (v.id) return false;
-    if (v.sku && bySku.has(v.sku)) return false; // prevent duplicate
-    return true;
-  });
+  /* 5️⃣ CREATE NEW VARIANTS */
+  const newVariants = variants.filter(v => !v.id);
 
   for (const v of newVariants) {
     const created = await tx.productVariant.create({
@@ -793,13 +804,52 @@ async function syncVariants(tx, productId, variants = []) {
         data: v.images.map(img => ({
           variantId: created.id,
           url: img.url,
-          publicId: img.publicId
+          publicId: img.publicId ?? null
         }))
       });
     }
   }
-
-  /* ❌ NO DELETE HERE (SAFE UPDATE ONLY) */
 }
+
+async function syncVariantImages(tx, variantId, images = []) {
+  if (!Array.isArray(images)) return;
+
+  const dbImages = await tx.productVariantImage.findMany({
+    where: { variantId }
+  });
+
+  const payloadIds = images.filter(i => i.id).map(i => i.id);
+
+  /* DELETE removed images */
+  await tx.productVariantImage.deleteMany({
+    where: {
+      variantId,
+      id: { notIn: payloadIds }
+    }
+  });
+
+  /* UPDATE / CREATE */
+  for (const img of images) {
+    if (img.id) {
+      await tx.productVariantImage.update({
+        where: { id: img.id },
+        data: {
+          url: img.url,
+          publicId: img.publicId ?? null
+        }
+      });
+    } else {
+      await tx.productVariantImage.create({
+        data: {
+          variantId,
+          url: img.url,
+          publicId: img.publicId ?? null
+        }
+      });
+    }
+  }
+}
+
+
 
 

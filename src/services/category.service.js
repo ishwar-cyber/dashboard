@@ -140,8 +140,6 @@ export const updateCategoryById = async (id, categoryData) => {
   if (Number.isNaN(categoryId)) {
     throw new Error("Invalid category ID");
   }
-  console.log('category update', categoryData[0]);
-
   const parseBoolean = (value) =>
     value === true || value === "true";
 

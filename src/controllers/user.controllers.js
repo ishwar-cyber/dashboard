@@ -92,7 +92,7 @@ export const updateAddress = async (req, res, next) => {
 
 export const addAddress = async (req, res, next) => {
   try {
-    const userId = parseInt(req.params.id, 10);
+    const userId = Number(req.params.id);
     if (Number.isNaN(userId)) return res.status(400).json({ message: "Invalid user id" });
 
     const newAddress = req.body;

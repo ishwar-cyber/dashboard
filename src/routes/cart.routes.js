@@ -1,11 +1,7 @@
 import { Router } from 'express';
 
 import {
-  addToCart,
-  getCart,
-  clearCart,
-  updateCartQuantity,
-  removeItemFromCart,
+ getCart, addToCart, clearCart, removeItem, increaseDecreaseQuantity
 } from '../controllers/cart.controllers.js';
 
 import { generateVisitorId } from '../middleware/visitor.middleware.js';
@@ -27,7 +23,7 @@ cartRouter.use(generateVisitorId);
 /**
  * Get cart
  */
-cartRouter.get('/', getCart);
+cartRouter.get('/my', getCart);
 
 /**
  * Add item to cart
@@ -44,7 +40,7 @@ cartRouter.post(
 cartRouter.put(
   '/items/:id',
   validateRequest(updateCartQuantitySchema),
-  updateCartQuantity
+  increaseDecreaseQuantity
 );
 
 /**
@@ -53,7 +49,7 @@ cartRouter.put(
 cartRouter.delete(
   '/items/:id',
   validateRequest(removeCartItemSchema),
-  removeItemFromCart
+  removeItem
 );
 
 /**

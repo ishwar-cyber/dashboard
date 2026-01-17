@@ -1,129 +1,77 @@
+import { getIds } from '../utilities/checkUserAndVisitor.js';
 import {
-  addItemToCart,
-  updateCartItemQuantity,
-  removeItemCart,
-  clearCartFromCart,
-  applyCoupon,
-  getOrCreateCart,
-  getCartByVisitorId,
+  getCartByUserIdAndVisitorId,
+  addToCartService,
+  removeCartItemService,
+  clearCartService
 } from '../services/cart.service.js';
 
-import { getIds } from '../utilities/checkUserAndVisitor.js';
-
-/**
- * GET CART
- */
+/* ---------------- GET CART ---------------- */
 export const getCart = async (req, res) => {
   try {
     const { userId, visitorId } = await getIds(req);
-    console.log('user id',userId);
-    
-    if (!userId && !visitorId) {
-      return res.status(200).json({
-        success: true,
-        data: { items: [], subTotal: 0 },
-      });
-    }
+    const data = await getCartByUserIdAndVisitorId({ userId, visitorId });
 
-    const cart = userId
-      ? await getOrCreateCart({ userId })
-      : await getCartByVisitorId({ visitorId });
-
-    res.json({ success: true, data: cart });
+    res.json({ success: true, data });
   } catch (err) {
-    console.error(err);
+    console.error('Get cart error:', err);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-/**
- * ADD ITEM
- */
 export const addToCart = async (req, res) => {
+  const { userId, visitorId } = await getIds(req);
+  const data = await addToCartService({
+    userId,
+    visitorId,
+    ...req.body
+  });
+
+  res.json({ success: true, data });
+};
+
+
+/* ---------------- REMOVE ITEM ---------------- */
+export const removeItem = async (req, res) => {
   try {
-    const { productId, variantId, quantity } = req.body;
-    const { userId, visitorId } = await getIds(req);
-
-    const cart = await addItemToCart(
-      { userId, visitorId },
-      { productId, variantId, quantity }
-    );
-
-    res.json({ success: true, message: 'Item added', data: cart });
+    await removeCartItemService({ cartItemId: req.params.id });
+    res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('Remove cart item error:', err);
+    res.status(500).json({ success: false });
   }
 };
 
-/**
- * UPDATE QUANTITY
- */
-export const updateCartQuantity = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { quantity } = req.body;
-    const { userId, visitorId } = await getIds(req);
-
-    const cart = await updateCartItemQuantity(
-      { userId, visitorId },
-      id,
-      quantity
-    );
-
-    res.json({ success: true, message: 'Quantity updated', data: cart });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
-
-/**
- * REMOVE ITEM
- */
-export const removeItemFromCart = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { userId, visitorId } = await getIds(req);
-
-    const cart = await removeItemCart({ userId, visitorId }, id);
-
-    res.json({ success: true, message: 'Item removed', data: cart });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
-
-/**
- * CLEAR CART
- */
+/* ---------------- CLEAR CART ---------------- */
 export const clearCart = async (req, res) => {
   try {
     const { userId, visitorId } = await getIds(req);
+    await clearCartService({ userId, visitorId });
 
-    const cart = await clearCartFromCart({ userId, visitorId });
-
-    res.json({ success: true, message: 'Cart cleared', data: cart });
+    res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('Clear cart error:', err);
+    res.status(500).json({ success: false });
   }
 };
-
-/**
- * APPLY COUPON
- */
-export const applyCoupons = async (req, res) => {
+export const increaseDecreaseQuantity = async (req, res) => {
   try {
-    const { code } = req.body;
+    const { cartItemId, action } = req.body;
     const { userId, visitorId } = await getIds(req);
 
-    const cart = await applyCoupon({ userId, visitorId }, code);
+    const data = await updateCartItemQuantityService({
+      cartItemId,
+      action,
+      userId,
+      visitorId
+    });
 
-    res.json({ success: true, message: 'Coupon applied', data: cart });
+    res.json({ success: true, data });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('Update quantity error:', err);
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
   }
 };

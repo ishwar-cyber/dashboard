@@ -51,11 +51,7 @@ export const getIds1 = async (req) => {
   try {
     if (req.cookies.authToken || req.headers.authorization) {
       const token = req.cookies.authToken.split(" ")[1] || req.headers.authorization.split(" "[1]);
-    console.log('user auth', token);
-      
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('decocdeee', decoded);
-      
       userId = decoded.id;
     }
   } catch (err) {
@@ -72,9 +68,7 @@ export const getIds1 = async (req) => {
     });
   } else {
     visitorId = req.cookies.visitorId;
-  }
-  console.log('userrrrr is', userId);
-  
+  }  
   return { userId, visitorId };
 };
 
