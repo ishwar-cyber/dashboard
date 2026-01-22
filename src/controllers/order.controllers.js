@@ -3,51 +3,314 @@ import { sendOrderEmail } from '../utilities/email.js';
 import { getIds } from '../utilities/checkUserAndVisitor.js';
 import { generateOrderNumber } from '../utilities/orderNumber.js';
 import axios from "axios";
-export const createOrder = async (req, res) => {
+const resolveItemPrice = (product, variantId) => {
+  if (variantId) {
+    const variant = product.variants.find(v => v.id === Number(variantId));
+    if (!variant) throw new Error("Variant not found");
+    return {
+      price: Number(variant.price),
+      image: variant.images?.[0]?.url || product.images?.[0]?.url || null,
+      variantName: variant.name
+    };
+  }
+
+  return {
+    price: Number(product.price),
+    image: product.images?.[0]?.url || null,
+    variantName: null
+  };
+};
+
+export const createOrder1 = async (req, res) => {
   try {
-    const { userId, visitorId } = await getIds(req);    
-    const orderNumber = await generateOrderNumber();
+    const { shippingAddress, paymentMethod, items } = req.body;
+    const userId = Number(req.user.id);
 
-    const { items, shippingAddress, paymentMethod, totalAmount, couponDiscount } = req.body;
+    if (!items?.length) {
+      return res.status(400).json({ message: "Cart is empty" });
+    }
 
-    if (!userId) return res.status(400).json({ success: false, message: 'User ID is required' });
-    if (!items || items.length === 0) return res.status(400).json({ success: false, message: 'Order items are required' });
-    if (!shippingAddress) return res.status(400).json({ success: false, message: 'Shipping address is required' });
-    if (!paymentMethod) return res.status(400).json({ success: false, message: 'Payment method is required' });
+    let orderItems = [];
+    let calculatedTotal = 0;
 
-    // Stock check using Prisma
-    for (let item of items) {
-      const productId = Number(item.product.id || item.product);
-      const product = await prisma.product.findUnique({ where: { id: productId }, include: { variants: true } });
-      if (!product) return res.status(404).json({ message: `Product ${item.name} not found` });
+// 🔒 TRANSACTION START
+const order = await prisma.$transaction(async (tx) => {
 
-      if (item.variantId) {
-        const vId = Number(item.variantId);
-        const variant = product.variants.find(v => v.id === vId);
-        if (!variant) return res.status(404).json({ message: `Variant not found for ${item.name}` });
-        if (Number(variant.stock) < item.quantity) return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
-      } else {
-        if (typeof product.stock === 'number' && Number(product.stock) < item.quantity) return res.status(400).json({ message: `Insufficient stock for ${item.name}` });
+  const orderNumber = generateOrderNumber();
+
+  for (const item of items) {
+    const product = await tx.product.findUnique({
+      where: { id: Number(item.productId) },
+      include: { variants: true, images: true }
+    });
+
+    if (!product) throw new Error("Product not found");
+
+    // ✅ Resolve price (variant > product)
+    const resolved = resolveItemPrice(product, item.variantId);
+
+    // ✅ STOCK CHECK + DECREMENT
+    if (item.variantId) {
+    const updated = await tx.productVariant.updateMany({
+      where: {
+        id: Number(item.variantId),
+        stock: 1 // only update if in stock
+      },
+      data: {
+        stock: 0 // mark out of stock after order
+      }
+    });
+
+    if (updated.count === 0) {
+      throw new Error("Variant is out of stock");
+    }
+
+    } else {
+     const updated = await tx.product.updateMany({
+        where: {
+          id: product.id,
+          stock: 1
+        },
+        data: {
+          stock: 0
+        }
+      });
+
+      if (updated.count === 0) {
+        throw new Error("Product is out of stock");
       }
     }
 
-    // Create order and order items
-    const createdOrder = await prisma.order.create({
-      data: {
-        orderNumber,
-        userId: Number(userId),
-        paymentMethod,
-        totalAmount: Number(totalAmount),
-        items: {
-          create: items.map(it => ({
-            productId: Number(it.product.id || it.product),
-            variantId: it.variantId ? Number(it.variantId) : null,
-            name: it.name,
-            price: Number(it.price),
-            quantity: Number(it.quantity),
-            image: it.image || null
-          }))
+    const itemTotal =
+      (resolved.price * Number(item.quantity)) +
+      (Number(item.shippingCharges) || 0);
+
+    calculatedTotal += itemTotal;
+    console.log('calculate Total', calculatedTotal);
+    
+    orderItems.push({
+      productId: product.id,
+      variantId: item.variantId || null,
+      name: product.name,
+      variantName: resolved.variantName,
+      price: resolved.price,
+      quantity: Number(item.quantity),
+      image: resolved.image,
+      shippingCharges: Number(item.shippingCharges) || 0,
+      total: itemTotal
+    });
+  }
+
+  const cashfreeRes = await axios.post(
+    `https://sandbox.cashfree.com/pg/orders`,
+    {
+      order_id: orderNumber,
+      order_amount: calculatedTotal,
+      order_currency: "INR",
+      customer_details: {
+        customer_id: String(userId),
+        customer_name: shippingAddress.fullName,
+        customer_phone: shippingAddress.phone,
+        customer_email: "customer@email.com"
+      },
+      order_meta: {
+        return_url: "http://localhost:4400/payment-status?order_id={order_id}",
+        notify_url: "http://localhost:4400/api/payment/webhook"
+      }
+    },
+    {
+      headers: {
+        "x-client-id": process.env.CASHFREE_APP_ID,
+        "x-client-secret": process.env.CASHFREE_SECRET_KEY,
+        "x-api-version": process.env.CASHFREE_API_VERSION,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+  console.log('cashfreeRes', cashfreeRes);
+  
+  const cashfreeOrderId = cashfreeRes.data.cf_order_id;
+  const paymentSessionId = cashfreeRes.data.payment_session_id;
+
+  if (!cashfreeOrderId) {
+    throw new Error("Failed to create Cashfree order");
+  }
+  
+  // ✅ CREATE ORDER
+  const order = await prisma.order.create({
+  data: {
+    orderNumber,
+    userId,
+    paymentMethod: "online",
+    totalAmount: calculatedTotal,
+
+    orderStatus: "placed",
+    paymentStatus: "pending",
+
+    cashfreeOrderId,        // ✅ REQUIRED FIELD
+    paymentSessionId,       // ✅ OPTIONAL / REQUIRED (your choice)
+
+    items: {
+      create: orderItems
+    },
+
+    address: {
+      create: {
+        fullName: shippingAddress.fullName,
+        phone: shippingAddress.phone,
+        line1: shippingAddress.line1,
+        line2: shippingAddress.line2,
+        city: shippingAddress.city,
+        state: shippingAddress.state,
+        pincode: shippingAddress.pincode
+      }
+    }
+  },
+  include: { items: true }
+});
+
+});
+
+
+return res.status(201).json({
+  success: true,
+  message: "Order created successfully",
+  data: {
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    paymentSessionId,
+    paymentLink: cashfreeRes.data.payments?.url
+  }
+});
+
+
+  } catch (err) {
+    console.error("Create order error:", err);
+    return res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+export const createOrder2 = async (req, res) => {
+  try {
+    const {
+      shippingAddressId,
+      paymentMethod,
+      items
+    } = req.body;
+
+    const userId = Number(req.user.id);
+
+    if (!shippingAddressId) {
+      return res.status(400).json({ message: "Shipping address required" });
+    }
+
+    if (!items?.length) {
+      return res.status(400).json({ message: "Cart is empty" });
+    }
+
+    // 🔹 Fetch address
+    const shippingAddress = await prisma.address.findUnique({
+      where: { id: Number(shippingAddressId) }
+    });
+
+    if (!shippingAddress) {
+      return res.status(400).json({ message: "Invalid shipping address" });
+    }
+
+    let orderItems = [];
+    let calculatedTotal = 0;
+    const orderNumber = generateOrderNumber();
+
+    // 🔒 TRANSACTION (STOCK + SNAPSHOT)
+    await prisma.$transaction(async (tx) => {
+      for (const item of items) {
+        const product = await tx.product.findUnique({
+          where: { id: Number(item.productId) },
+          include: { variants: true, images: true }
+        });
+
+        if (!product) throw new Error("Product not found");
+
+        const resolved = resolveItemPrice(product, item.variantId);
+
+        // 🔹 Binary stock logic
+        if (item.variantId) {
+          const updated = await tx.productVariant.updateMany({
+            where: { id: Number(item.variantId), stock: 1 },
+            data: { stock: 0 }
+          });
+          if (updated.count === 0) throw new Error("Variant out of stock");
+        } else {
+          const updated = await tx.product.updateMany({
+            where: { id: product.id, stock: 1 },
+            data: { stock: 0 }
+          });
+          if (updated.count === 0) throw new Error("Product out of stock");
+        }
+
+        const quantity = Number(item.quantity || 1);
+        const itemTotal = resolved.price * quantity;
+        calculatedTotal += itemTotal;
+
+        orderItems.push({
+          productId: product.id,
+          variantId: item.variantId || null,
+          name: product.name,
+          variantName: resolved.variantName || null,
+          price: resolved.price,
+          quantity,
+          image: resolved.image
+        });
+      }
+    });
+
+    // 🔹 CREATE CASHFREE ORDER (OPTION-1)
+    const cashfreeRes = await axios.post(
+      "https://sandbox.cashfree.com/pg/orders",
+      {
+        order_id: orderNumber,
+        order_amount: calculatedTotal,
+        order_currency: "INR",
+        customer_details: {
+          customer_id: String(userId),
+          customer_name: shippingAddress.fullName,
+          customer_phone: shippingAddress.phone
         },
+        order_meta: {
+          return_url: "http://localhost:4400/payment-status?order_id={order_id}",
+          notify_url: "http://localhost:4400/api/payment/webhook"
+        }
+      },
+      {
+        headers: {
+          "x-client-id": process.env.CASHFREE_APP_ID,
+          "x-client-secret": process.env.CASHFREE_SECRET_KEY,
+          "x-api-version": process.env.CASHFREE_API_VERSION,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    if (!cashfreeRes.data?.cf_order_id) {
+      throw new Error("Cashfree order creation failed");
+    }
+
+    // 🔹 SAVE ORDER
+    const order = await prisma.order.create({
+      data: {
+        userId,
+        orderNumber,
+        paymentMethod,
+        totalAmount: calculatedTotal,
+
+        orderStatus: "placed",
+        paymentStatus: "pending",
+
+        cashfreeOrderId: cashfreeRes.data.cf_order_id,
+        paymentSessionId: cashfreeRes.data.payment_session_id,
+
+        items: { create: orderItems },
+
         address: {
           create: {
             fullName: shippingAddress.fullName,
@@ -56,56 +319,161 @@ export const createOrder = async (req, res) => {
             line2: shippingAddress.line2,
             city: shippingAddress.city,
             state: shippingAddress.state,
-            pincode: shippingAddress.pincode,
+            pincode: shippingAddress.pincode
           }
         }
       }
     });
 
-    
-    // Call Cashfree API
-    const response = await axios.post(
-      `https://sandbox.cashfree.com/pg/orders`,
+    return res.status(201).json({
+      success: true,
+      orderNumber: order.orderNumber,
+      paymentSessionId: order.paymentSessionId,
+      paymentLink: cashfreeRes.data.payments?.url
+    });
+
+  } catch (err) {
+    console.error("Create order error:", err);
+    return res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+export const createOrder = async (req, res) => {
+  try {
+    const { shippingAddressId, paymentMethod, items } = req.body;
+    const userId = Number(req.user.id);
+
+    if (!shippingAddressId) {
+      return res.status(400).json({ message: "Shipping address required" });
+    }
+
+    if (!items?.length) {
+      return res.status(400).json({ message: "Cart is empty" });
+    }
+
+    // 🔹 Fetch address
+    const shippingAddress = await prisma.address.findUnique({
+      where: { id: Number(shippingAddressId) }
+    });
+
+    if (!shippingAddress) {
+      return res.status(400).json({ message: "Invalid shipping address" });
+    }
+
+    let orderItems = [];
+    let calculatedTotal = 0;
+    const orderNumber = generateOrderNumber();
+
+    // 🔒 TRANSACTION (ONLY SNAPSHOT + PRICE CALCULATION)
+    await prisma.$transaction(async (tx) => {
+      for (const item of items) {
+        const product = await tx.product.findUnique({
+          where: { id: Number(item.productId) },
+          include: { variants: true, images: true }
+        });
+
+        if (!product) throw new Error("Product not found");
+
+        const resolved = resolveItemPrice(product, item.variantId);
+
+        const quantity = Number(item.quantity || 1);
+        const itemTotal = resolved.price * quantity;
+
+        calculatedTotal += itemTotal;
+
+        orderItems.push({
+          productId: product.id,
+          variantId: item.variantId || null,
+          name: product.name,
+          variantName: resolved.variantName || null,
+          price: resolved.price,
+          quantity,
+          image: resolved.image
+        });
+      }
+    });
+
+    // 🔹 CREATE CASHFREE ORDER (OPTION-1)
+    const cashfreeRes = await axios.post(
+      "https://sandbox.cashfree.com/pg/orders",
       {
         order_id: orderNumber,
-        order_amount: totalAmount,
-        order_currency: 'INR',
+        order_amount: calculatedTotal,
+        order_currency: "INR",
         customer_details: {
-          customer_id: userId || visitorId,
-          customer_name: shippingAddress?.fullName || '',
-          customer_email: shippingAddress?.email || 'customerEmail@gmail.com',
-          customer_phone: shippingAddress?.phone || '9999999999'
+          customer_id: String(userId),
+          customer_name: shippingAddress.fullName,
+          customer_phone: shippingAddress.phone
         },
         order_meta: {
-          return_url: 'http://localhost:4400/payment-status?order_id={order_id}',
-          notify_url: 'http://localhost:4400/api/v1/payment/webhook'
+          return_url: "http://localhost:4400/payment-status?order_id={order_id}",
+          notify_url: "http://localhost:4400/api/payment/webhook"
         }
       },
       {
         headers: {
-          'x-client-id': process.env.CASHFREE_APP_ID || 'TEST_CLIENT_ID',
-          'x-client-secret': process.env.CASHFREE_SECRET_KEY || 'TEST_SECRET',
-          'x-api-version': process.env.CASHFREE_API_VERSION || '2025-01-01',
-          'Content-Type': 'application/json'
+          "x-client-id": process.env.CASHFREE_APP_ID,
+          "x-client-secret": process.env.CASHFREE_SECRET_KEY,
+          "x-api-version": process.env.CASHFREE_API_VERSION,
+          "Content-Type": "application/json"
         }
       }
     );
 
-    const paymentLink = response.data.payments?.url;
-    const payment_session_id = response.data.payment_session_id;
+    if (!cashfreeRes.data?.cf_order_id) {
+      throw new Error("Cashfree order creation failed");
+    }
 
-    // Update order with cashfree info (store cf_order_id)
-    await prisma.order.update({ where: { id: createdOrder.id }, data: { cashfreeOrderId: response.data.cf_order_id } });
+    // 🔹 SAVE ORDER (NO STOCK TOUCH)
+    const order = await prisma.order.create({
+      data: {
+        userId,
+        orderNumber,
+        paymentMethod,
+        totalAmount: calculatedTotal,
 
-    // Clear cart for user
-    if (userId) await prisma.cart.deleteMany({ where: { userId: Number(userId) } });
+        orderStatus: "placed",
+        paymentStatus: "pending",
 
-    res.json({ success: true, paymentLink, payment_session_id, orderNumber });
+        cashfreeOrderId: cashfreeRes.data.cf_order_id,
+        paymentSessionId: cashfreeRes.data.payment_session_id,
+
+        items: { create: orderItems },
+
+        address: {
+          create: {
+            fullName: shippingAddress.fullName,
+            phone: shippingAddress.phone,
+            line1: shippingAddress.line1,
+            line2: shippingAddress.line2,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            pincode: shippingAddress.pincode
+          }
+        }
+      }
+    });
+
+    return res.status(201).json({
+      success: true,
+      orderNumber: order.orderNumber,
+      paymentSessionId: order.paymentSessionId,
+      paymentLink: cashfreeRes.data.payments?.url
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Order creation failed', error: err.message });
+    console.error("Create order error:", err);
+    return res.status(400).json({
+      success: false,
+      message: err.message
+    });
   }
 };
+
+
 
 export const getAllOrders = async (req, res) => {
     try {
@@ -532,3 +900,78 @@ export const refundOrder = async (req, res) => {
 };
 
 
+
+export const cashfreeWebhook = async (req, res) => {
+  try {
+    if (!verifyCashfreeSignature(req)) {
+      return res.status(401).json({ message: "Invalid signature" });
+    }
+
+    const payload = JSON.parse(req.body.toString("utf8"));
+    const data = payload.data;
+
+    const orderNumber = data?.order?.order_id;
+    const paymentStatus = data?.payment?.payment_status;
+
+    if (!orderNumber) {
+      return res.status(400).json({ message: "Invalid payload" });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { orderNumber },
+      include: { items: true }
+    });
+
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // 🔁 Idempotency
+    if (order.paymentStatus === "success") {
+      return res.status(200).json({ message: "Already processed" });
+    }
+
+    // ✅ PAYMENT SUCCESS
+    if (paymentStatus === "SUCCESS") {
+      await prisma.$transaction(async (tx) => {
+
+        // 🔹 Update order
+        await tx.order.update({
+          where: { id: order.id },
+          data: {
+            paymentStatus: "success",
+            orderStatus: "confirmed"
+          }
+        });
+
+        // 🔹 UPDATE STOCK (0 / 1)
+        for (const item of order.items) {
+          if (item.variantId) {
+            await tx.productVariant.updateMany({
+              where: { id: item.variantId, stock: 1 },
+              data: { stock: 0 }
+            });
+          } else {
+            await tx.product.updateMany({
+              where: { id: item.productId, stock: 1 },
+              data: { stock: 0 }
+            });
+          }
+        }
+
+        // 🔹 CLEAR CART
+        await tx.cartItem.deleteMany({
+          where: { cart: { userId: order.userId } }
+        });
+
+        await tx.cart.deleteMany({
+          where: { userId: order.userId }
+        });
+      });
+    }
+
+    return res.status(200).json({ success: true });
+
+  } catch (error) {
+    console.error("Webhook error:", error);
+    return res.status(500).json({ message: "Webhook failed" });
+  }
+};

@@ -133,39 +133,65 @@ export const userSignIn = async (req, res, next) => {
   }
 };
 
-const mergeCartAfterLogin = async (userId, visitorId) => {
-  if (!visitorId) return;
+export const mergeCartAfterLogin = async (userId, visitorId) => {
+  if (!userId || !visitorId) return;
 
-  const visitorCart = await prisma.cart.findFirst({ where: { visitorId, isActive: true }, include: { items: { include: { images: true } } } });
-  if (!visitorCart) return;
+  return prisma.$transaction(async (tx) => {
+    /* ---------------- GET VISITOR CART ---------------- */
+    const visitorCart = await tx.cart.findFirst({
+      where: { visitorId, isActive: true },
+      include: { items: true }
+    });
 
-  let userCart = await prisma.cart.findFirst({ where: { userId, isActive: true }, include: { items: { include: { images: true } } } });
-  if (!userCart) {
-    // no cart → just assign visitor cart to user
-    await prisma.cart.update({where: {id: visitorCart.id}, data: {userId, visitorId: null}});
-    return;
-  }
+    if (!visitorCart) return;
 
-  // merge carts
-  for (const vItem of visitorCart.items) {
-    const existing = userCart.items.find(
-      (uItem) => uItem.productId === vItem.productId
-    );
-    if (existing) {
-      await prisma.cartItem.update({where: {id: existing.id}, data: {quantity: existing.quantity + vItem.quantity}});
-    } else {
-        await prisma.cartItem.create({
-          data: {
+    /* ---------------- GET / CREATE USER CART ---------------- */
+    let userCart = await tx.cart.findFirst({
+      where: { userId, isActive: true },
+      include: { items: true }
+    });
+
+    if (!userCart) {
+      // Simply convert visitor cart → user cart
+      await tx.cart.update({
+        where: { id: visitorCart.id },
+        data: {
+          userId,
+          visitorId: null
+        }
+      });
+      return;
+    }
+
+    /* ---------------- MERGE ITEMS ---------------- */
+    for (const vItem of visitorCart.items) {
+      await tx.cartItem.upsert({
+        where: {
+          cartId_productId_variantId: {
             cartId: userCart.id,
             productId: vItem.productId,
-            name: vItem.name,
-            price: vItem.price,
-            quantity: vItem.quantity,
-            images: { create: vItem.images ? vItem.images.map((img) => ({ url: img.url || img, publicId:img.publicId })) : [] },
-          },
-        });
+            variantId: vItem.variantId
+          }
+        },
+        update: {
+          quantity: {
+            increment: vItem.quantity
+          }
+        },
+        create: {
+          cartId: userCart.id,
+          productId: vItem.productId,
+          variantId: vItem.variantId,
+          quantity: vItem.quantity,
+          shippingCharges: vItem.shippingCharges
+        }
+      });
     }
-  }
 
-  await prisma.cart.delete({where: {id: visitorCart.id}});
+    /* ---------------- CLEANUP VISITOR CART ---------------- */
+    // await tx.cart.delete({
+    //   where: { id: visitorCart.id }
+    // });
+  });
 };
+
