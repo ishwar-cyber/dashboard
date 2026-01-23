@@ -147,12 +147,11 @@ export const mergeCartAfterLogin = async (userId, visitorId) => {
 
     /* ---------------- GET / CREATE USER CART ---------------- */
     let userCart = await tx.cart.findFirst({
-      where: { userId, isActive: true },
-      include: { items: true }
+      where: { userId, isActive: true }
     });
 
+    // ✅ If user cart does not exist → convert visitor cart
     if (!userCart) {
-      // Simply convert visitor cart → user cart
       await tx.cart.update({
         where: { id: visitorCart.id },
         data: {
@@ -165,33 +164,65 @@ export const mergeCartAfterLogin = async (userId, visitorId) => {
 
     /* ---------------- MERGE ITEMS ---------------- */
     for (const vItem of visitorCart.items) {
-      await tx.cartItem.upsert({
-        where: {
-          cartId_productId_variantId: {
+
+      // ================= PRODUCT WITH VARIANT =================
+      if (vItem.variantId !== null) {
+        await tx.cartItem.upsert({
+          where: {
+            cartId_productId_variantId: {
+              cartId: userCart.id,
+              productId: vItem.productId,
+              variantId: vItem.variantId
+            }
+          },
+          update: {
+            quantity: { increment: vItem.quantity }
+          },
+          create: {
             cartId: userCart.id,
             productId: vItem.productId,
-            variantId: vItem.variantId
+            variantId: vItem.variantId,
+            quantity: vItem.quantity,
+            shippingCharges: vItem.shippingCharges
           }
-        },
-        update: {
-          quantity: {
-            increment: vItem.quantity
+        });
+
+      // ================= PRODUCT WITHOUT VARIANT =================
+      } else {
+        const existingItem = await tx.cartItem.findFirst({
+          where: {
+            cartId: userCart.id,
+            productId: vItem.productId,
+            variantId: null
           }
-        },
-        create: {
-          cartId: userCart.id,
-          productId: vItem.productId,
-          variantId: vItem.variantId,
-          quantity: vItem.quantity,
-          shippingCharges: vItem.shippingCharges
+        });
+
+        if (existingItem) {
+          await tx.cartItem.update({
+            where: { id: existingItem.id },
+            data: {
+              quantity: { increment: vItem.quantity }
+            }
+          });
+        } else {
+          await tx.cartItem.create({
+            data: {
+              cartId: userCart.id,
+              productId: vItem.productId,
+              variantId: null,
+              quantity: vItem.quantity,
+              shippingCharges: vItem.shippingCharges
+            }
+          });
         }
-      });
+      }
     }
 
-    /* ---------------- CLEANUP VISITOR CART ---------------- */
-    // await tx.cart.delete({
-    //   where: { id: visitorCart.id }
-    // });
+    /* ---------------- DELETE VISITOR CART ---------------- */
+    await tx.cart.delete({
+      where: { id: visitorCart.id }
+    });
   });
 };
 
+  

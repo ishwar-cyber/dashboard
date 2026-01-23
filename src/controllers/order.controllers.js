@@ -427,6 +427,7 @@ export const createOrder = async (req, res) => {
       throw new Error("Cashfree order creation failed");
     }
 
+
     // 🔹 SAVE ORDER (NO STOCK TOUCH)
     const order = await prisma.order.create({
       data: {
@@ -456,7 +457,9 @@ export const createOrder = async (req, res) => {
         }
       }
     });
-
+    if(order.orderStatus === 'placed'){
+      await cartItemsAfterOrder(userId, items);
+    }
     return res.status(201).json({
       success: true,
       orderNumber: order.orderNumber,
@@ -474,6 +477,69 @@ export const createOrder = async (req, res) => {
 };
 
 
+/**
+ * Remove purchased cart items after successful payment
+ * and optionally close the active cart.
+ */
+export const cartItemsAfterOrder = async (userId, items) => {
+  if (!userId) {
+    throw new Error('UserId is required');
+  }
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return { success: true, message: 'No cart items to clear' };
+  }
+
+  return prisma.$transaction(async (tx) => {
+    /* ---------------- GET ACTIVE USER CART ---------------- */
+    const cart = await tx.cart.findFirst({
+      where: {
+        userId,
+        isActive: true
+      }
+    });
+
+    if (!cart) {
+      return { success: true, message: 'No active cart found' };
+    }
+
+    /* ---------------- DELETE PURCHASED ITEMS ---------------- */
+    for (const item of items) {
+
+      // ===== PRODUCT WITH VARIANT =====
+      if (item.variantId !== null && item.variantId !== undefined) {
+        await tx.cartItem.deleteMany({
+          where: {
+            cartId: cart.id,
+            productId: item.productId,
+            variantId: item.variantId
+          }
+        });
+
+      // ===== PRODUCT WITHOUT VARIANT =====
+      } else {
+        await tx.cartItem.deleteMany({
+          where: {
+            cartId: cart.id,
+            productId: item.productId,
+            variantId: null
+          }
+        });
+      }
+    }
+
+    /* ---------------- CLOSE CART (RECOMMENDED) ---------------- */
+    await tx.cart.update({
+      where: { id: cart.id },
+      data: { isActive: false }
+    });
+
+    return {
+      success: true,
+      message: 'Cart items cleared successfully'
+    };
+  });
+};
 
 export const getAllOrders = async (req, res) => {
     try {

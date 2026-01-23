@@ -97,11 +97,7 @@ export const addToCartService = async ({
 
     if (!cart) {
       cart = await tx.cart.create({
-        data: {
-          userId,
-          visitorId,
-          isActive: true
-        }
+        data: { userId, visitorId, isActive: true }
       });
     }
 
@@ -116,22 +112,18 @@ export const addToCartService = async ({
     }
 
     const hasVariants = product.variants.length > 0;
-    let finalVariantId = null;
 
     /* ---------------- VARIANT RULES ---------------- */
-
-    // ❌ Product HAS variants but variantId missing
     if (hasVariants && variantId === null) {
       throw new Error('Variant is required for this product');
     }
 
-    // ❌ Product has NO variants but variantId sent
     if (!hasVariants && variantId !== null) {
       throw new Error('This product does not support variants');
     }
 
-    // ✅ Validate variant if required
-    if (hasVariants && variantId !== null) {
+    /* ================= PRODUCT WITH VARIANT ================= */
+    if (hasVariants) {
       const validVariant = product.variants.some(
         v => v.id === Number(variantId)
       );
@@ -140,31 +132,55 @@ export const addToCartService = async ({
         throw new Error('Invalid variant for this product');
       }
 
-      finalVariantId = Number(variantId);
-    }
-
-    /* ---------------- UPSERT CART ITEM ---------------- */
-    await tx.cartItem.upsert({
-      where: {
-        cartId_productId_variantId: {
+      await tx.cartItem.upsert({
+        where: {
+          cartId_productId_variantId: {
+            cartId: cart.id,
+            productId: product.id,
+            variantId: Number(variantId)
+          }
+        },
+        update: {
+          quantity: { increment: quantity }
+        },
+        create: {
           cartId: cart.id,
           productId: product.id,
-          variantId: finalVariantId
+          variantId: Number(variantId),
+          quantity,
+          shippingCharges: 100
         }
-      },
-      update: {
-        quantity: {
-          increment: quantity
+      });
+
+    /* ================= PRODUCT WITHOUT VARIANT ================= */
+    } else {
+      const existingItem = await tx.cartItem.findFirst({
+        where: {
+          cartId: cart.id,
+          productId: product.id,
+          variantId: null
         }
-      },
-      create: {
-        cartId: cart.id,
-        productId: product.id,
-        variantId: finalVariantId,
-        quantity,
-        shippingCharges: 100
+      });
+
+      if (existingItem) {
+        await tx.cartItem.update({
+          where: { id: existingItem.id },
+          data: {
+            quantity: { increment: quantity }
+          }
+        });
+      } else {
+        await tx.cartItem.create({
+          data: {
+            cartId: cart.id,
+            productId: product.id,
+            variantId: null,
+            quantity,
+            shippingCharges: 100
+          }
+        });
       }
-    });
+    }
 
     /* ---------------- CART COUNT ---------------- */
     const cartCount = await tx.cartItem.count({

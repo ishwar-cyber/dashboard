@@ -352,8 +352,10 @@ model CartItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([cartId, productId, variantId]) // 🔥 VERY IMPORTANT
+  // ✅ For products WITH variants
+  @@unique([cartId, productId, variantId])
 }
+
 
 // =======================================
 // COUPON
