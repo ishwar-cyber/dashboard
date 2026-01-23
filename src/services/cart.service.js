@@ -116,7 +116,7 @@ export const addToCartService = async ({
     }
 
     const hasVariants = product.variants.length > 0;
-    let finalVariantId: number | null = null;
+    let finalVariantId = null;
 
     /* ---------------- VARIANT RULES ---------------- */
 
