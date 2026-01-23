@@ -178,21 +178,6 @@ export const addToCartService = async ({
     };
   });
 };
-    /* ---------------- CALCULATE CART COUNT ---------------- */
-    const cartCountAgg = await tx.cartItem.aggregate({
-      where: { cartId: cart.id },
-      _sum: { productId: true }
-    });
-
-    const cartCount = cartCountAgg._sum.productId || 0;
-    
-    return {
-      success: true,
-      cartId: cart.id,
-      cartCount
-    };
-  });
-};
 
 
 /* ---------------- REMOVE ITEM ---------------- */
