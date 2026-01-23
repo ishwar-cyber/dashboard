@@ -108,19 +108,30 @@ export const addToCartService = async ({
     /* ---------------- VALIDATE PRODUCT ---------------- */
     const product = await tx.product.findUnique({
       where: { id: Number(productId) },
-      include: {
-        variants: true
-      }
+      include: { variants: true }
     });
 
     if (!product) {
       throw new Error('Product not found');
     }
 
-    /* ---------------- VALIDATE VARIANT ---------------- */
-    let finalVariantId = null;
+    const hasVariants = product.variants.length > 0;
+    let finalVariantId: number | null = null;
 
-    if (variantId !== null) {
+    /* ---------------- VARIANT RULES ---------------- */
+
+    // ❌ Product HAS variants but variantId missing
+    if (hasVariants && variantId === null) {
+      throw new Error('Variant is required for this product');
+    }
+
+    // ❌ Product has NO variants but variantId sent
+    if (!hasVariants && variantId !== null) {
+      throw new Error('This product does not support variants');
+    }
+
+    // ✅ Validate variant if required
+    if (hasVariants && variantId !== null) {
       const validVariant = product.variants.some(
         v => v.id === Number(variantId)
       );
@@ -155,6 +166,18 @@ export const addToCartService = async ({
       }
     });
 
+    /* ---------------- CART COUNT ---------------- */
+    const cartCount = await tx.cartItem.count({
+      where: { cartId: cart.id }
+    });
+
+    return {
+      success: true,
+      cartId: cart.id,
+      cartCount
+    };
+  });
+};
     /* ---------------- CALCULATE CART COUNT ---------------- */
     const cartCountAgg = await tx.cartItem.aggregate({
       where: { cartId: cart.id },
