@@ -31,6 +31,9 @@ export const getCartByUserIdAndVisitorId = async ({ userId, visitorId }) => {
       isActive: true,
       ...(userId ? { userId } : { visitorId })
     },
+    orderBy: {
+      createdAt: 'asc',
+    },
     include: {
       items: {
         include: {
@@ -224,13 +227,13 @@ export const clearCartService = async ({ userId, visitorId }) => {
 };
 
 export const updateCartItemQuantityService = async ({
-  cartItemId,
+  id,
   action,
   userId,
   visitorId
-}) => {
+}) => {  
   const cartItem = await prisma.cartItem.findUnique({
-    where: { id: Number(cartItemId) },
+    where: { id: Number(id) },
     include: { cart: true }
   });
 
@@ -240,12 +243,10 @@ export const updateCartItemQuantityService = async ({
 
   let newQuantity = cartItem.quantity;
 
-  if (action === 'increase') {
+  if (action) {
     newQuantity += 1;
-  } else if (action === 'decrease') {
-    newQuantity -= 1;
   } else {
-    throw new Error('Invalid action');
+    newQuantity -= 1;
   }
 
   /* 🔥 If quantity becomes 0 → remove item */

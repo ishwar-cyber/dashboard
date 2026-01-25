@@ -38,7 +38,7 @@ cartRouter.post(
  * Update cart item quantity
  */
 cartRouter.put(
-  '/items/:id',
+  '/items/:id/update',
   validateRequest(updateCartQuantitySchema),
   increaseDecreaseQuantity
 );

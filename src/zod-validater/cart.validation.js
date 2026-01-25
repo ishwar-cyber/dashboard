@@ -24,7 +24,7 @@ export const updateCartQuantitySchema = z.object({
     id,
   }),
   body: z.object({
-    quantity: z.coerce.number().int().min(0),
+    action: z.coerce.boolean(),
   }),
 });
 

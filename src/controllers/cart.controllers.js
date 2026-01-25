@@ -3,6 +3,7 @@ import {
   getCartByUserIdAndVisitorId,
   addToCartService,
   removeCartItemService,
+  updateCartItemQuantityService,
   clearCartService
 } from '../services/cart.service.js';
 
@@ -56,11 +57,14 @@ export const clearCart = async (req, res) => {
 };
 export const increaseDecreaseQuantity = async (req, res) => {
   try {
-    const { cartItemId, action } = req.body;
+     console.log('ACTION', req.body);
+    const id = Number(req.params.id);
+    const { action } = req.body;
     const { userId, visitorId } = await getIds(req);
-
+   
+    
     const data = await updateCartItemQuantityService({
-      cartItemId,
+      id,
       action,
       userId,
       visitorId
