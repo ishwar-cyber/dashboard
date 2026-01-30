@@ -86,7 +86,6 @@ app.use(errorHandling);
 app.listen(PORT,async()=>{
     console.log(`shoppyness api working http://localhost:${PORT}`);
    await connectToDatabse();
-  //  console.log("mongodb connected");
    await connectToPostgre();
    console.log("postreSQl connected");
 })

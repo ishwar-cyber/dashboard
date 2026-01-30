@@ -23,7 +23,7 @@ const resolveItemPrice = (product, variantId) => {
 
 export const createOrder = async (req, res) => {
   try {
-    const { shippingAddressId, paymentMethod, items } = req.body;
+    const { shippingAddressId, items, couponCode } = req.body;
     const userId = Number(req.user.id);
 
     if (!shippingAddressId) {
@@ -67,11 +67,11 @@ export const createOrder = async (req, res) => {
         orderItems.push({
           productId: product.id,
           variantId: item.variantId || null,
-          name: product.name,
+          productName: product.name,
           variantName: resolved.variantName || null,
           price: resolved.price,
           quantity,
-          image: resolved.image
+          image: resolved.image || null
         });
       }
     });
@@ -88,8 +88,8 @@ export const createOrder = async (req, res) => {
           customer_phone: shippingAddress.phone
         },
         order_meta: {
-          return_url: "https://application-shoppyness.vercel.app/payment-status?order_id={order_id}",
-          notify_url: "https://application-shoppyness.vercel.app/payment/webhook"
+          return_url: "http://localhost:4400/payment-status?order_id={order_id}",
+          notify_url: "http://localhost:4400/payment/webhook"
         }
       },
       {
@@ -106,18 +106,14 @@ export const createOrder = async (req, res) => {
       throw new Error("Cashfree order creation failed");
     }
 
-
+    let paymentMethod = 'ONLINE';
     // 🔹 SAVE ORDER (NO STOCK TOUCH)
-    const order = await prisma.order.create({
+      const order = await prisma.order.create({
       data: {
         userId,
         orderNumber,
-        paymentMethod,
+
         totalAmount: calculatedTotal,
-
-        orderStatus: "placed",
-        paymentStatus: "pending",
-
         cashfreeOrderId: cashfreeRes.data.cf_order_id,
         paymentSessionId: cashfreeRes.data.payment_session_id,
 
@@ -132,13 +128,26 @@ export const createOrder = async (req, res) => {
             city: shippingAddress.city,
             state: shippingAddress.state,
             pincode: shippingAddress.pincode
+            // ❌ country omitted → default "india"
+          }
+        },
+        tracking: {
+          createMany: {
+            data: [
+              { stepKey: 'CONFIRMED', label: 'Order Confirmed', sequence: 1 },
+              { stepKey: 'SHIPPED', label: 'Shipped', sequence: 2 },
+              { stepKey: 'OUT_FOR_DELIVERY', label: 'Out for delivery', sequence: 3 },
+              { stepKey: 'DELIVERED', label: 'Delivered', sequence: 4 }
+            ]
           }
         }
       }
     });
-    if(order.orderStatus === 'placed'){
+
+    if (order.orderStatus === 'CONFIRMED') {
       await cartItemsAfterOrder(userId, items);
     }
+
     return res.status(201).json({
       success: true,
       orderNumber: order.orderNumber,
@@ -366,37 +375,46 @@ export const getOrderByIdAdmin = async (req, res) => {
 export const updateOrderTracking = async (req, res, next) => {
   try {
     const { orderId } = req.params;
-    const { status } = req.query;
+    const { status } = req.body;
 
-    // Support numeric id or orderNumber
-    let orderRec = null;
-    if (!isNaN(Number(orderId))) orderRec = await prisma.order.findUnique({ where: { id: Number(orderId) } });
-    else orderRec = await prisma.order.findFirst({ where: { orderNumber: orderId } });
-    if (!orderRec) return res.status(404).json({ message: 'Order not found' });
+    const order = await prisma.order.findFirst({
+    where: { id: Number(orderId) }
+  });
+  if (!order) return res.status(404).json({ message: 'Order not found' });
 
-    const orderIdNum = orderRec.id;
-    const tracks = await prisma.orderTracking.findMany({ where: { orderId: orderIdNum }, orderBy: { id: 'asc' } });
-    const statusIndex = tracks.findIndex(step => step.stepKey === status);
-    if (statusIndex === -1) return res.status(400).json({ message: 'Invalid status' });
+  const steps = await prisma.orderTracking.findMany({
+    where: { orderId: Number(order.id) },
+    orderBy: { sequence: 'asc' }
+  });  
+  const target = steps.find(s => s.stepKey.toLowerCase() === status.toLowerCase());
+  if (!target) return res.status(400).json({ message: 'Invalid status' });
 
-    // Update all steps up to statusIndex
-    const updates = [];
-    for (let i = 0; i <= statusIndex; i++) {
-      if (!tracks[i].completed) {
-        updates.push(prisma.orderTracking.update({ where: { id: tracks[i].id }, data: { completed: true, completedAt: new Date() } }));
+  await prisma.$transaction(async (tx) => {
+    for (const step of steps) {
+      if (step.sequence <= target.sequence && !step.completed) {
+        await tx.orderTracking.update({
+          where: { id: step.id },
+          data: { completed: true, completedAt: new Date() }
+        });
       }
     }
-    await Promise.all(updates);
 
-    const updatedOrder = await prisma.order.update({ where: { id: orderIdNum }, data: { orderStatus: status } });
-    const updatedTracks = await prisma.orderTracking.findMany({ where: { orderId: orderIdNum }, orderBy: { id: 'asc' } });
+    await tx.order.update({
+      where: { id: order.id },
+      data: { orderStatus: status.toUpperCase() }
+    });
+  });
 
-    return res.json({ success: true, message: `Order updated to ${status}`, orderStatus: updatedOrder.orderStatus, tracking: updatedTracks });
-
+  res.json({ success: true, message: `Order updated to ${status}` });
   } catch (error) {
-    next(error);
-  }
-};
+      console.error('Update order tracking error:', error);
+      res.status(500).json({
+          success: false,
+          message: 'Failed to update order tracking',
+          error: error.message
+      });
+  };
+}
 
 
 
@@ -544,22 +562,70 @@ export const getOrderTracking = async (req, res, next) => {
   try {
     const { orderId } = req.params;
 
+    // 1️⃣ Find order (numeric id or order number)
     let order = null;
+
     if (!isNaN(Number(orderId))) {
-      order = await prisma.order.findUnique({ where: { id: Number(orderId) } });
+      order = await prisma.order.findUnique({
+        where: { id: Number(orderId) },
+        include: { address: true }
+      });
     }
-    if (!order) order = await prisma.order.findFirst({ where: { orderNumber: orderId } });
 
-    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!order) {
+      order = await prisma.order.findFirst({
+        where: { orderNumber: orderId },
+        include: { address: true }
+      });
+    }
 
-    const tracks = await prisma.orderTracking.findMany({ where: { orderId: order.id }, orderBy: { id: 'asc' } });
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
 
-    res.status(200).json({ success: true, payload: { orderStatus: order.orderStatus, tracking: tracks, orderNumber: order.orderNumber } });
+    // 2️⃣ Fetch tracking records
+    const tracks = await prisma.orderTracking.findMany({
+      where: { orderId: Number(order.id) },
+      orderBy: { id: 'asc' }
+    });
+
+    // 3️⃣ Build timeline for UI
+    const statusTimeline = tracks.map(track => ({
+      label: track.statusLabel,           // ex: "Shipped"
+      date: formatDate(track.createdAt),  // formatted
+      done: true
+    }));
+    
+    // 4️⃣ API response EXACTLY as frontend needs
+    const response = {
+      id: order.orderNumber,
+      deliveredOn: order.deliveredAt
+        ? formatDate(order.deliveredAt)
+        : null,
+
+      customer: {
+        name: order.user?.fullName,
+        phone: order.user?.phone,
+        address: `${order.address?.line1}, ${order.address?.city}, ${order.address?.state}`
+      },
+
+      pricing: {
+        mrp: order.totalMrp,
+        selling: order.totalAmount
+      },
+
+      paymentMethod: order.paymentMethod,
+
+      statusTimeline
+    };
+
+    res.status(200).json({ success: true, data: response });
 
   } catch (error) {
     next(error);
   }
 };
+
 
 export const refundOrder = async (req, res) => {
   try {
@@ -643,80 +709,25 @@ export const refundOrder = async (req, res) => {
     });
   }
 };
+export const requestReturn = async (req, res) => {
+  const { orderId } = req.params;
+  const { reason } = req.body;
 
+  const order = await prisma.order.findFirst({
+    where: { orderNumber: orderId }
+  });
 
-
-export const cashfreeWebhook = async (req, res) => {
-  try {
-    if (!verifyCashfreeSignature(req)) {
-      return res.status(401).json({ message: "Invalid signature" });
+  await prisma.orderReturn.create({
+    data: {
+      orderId: order.id,
+      reason
     }
+  });
 
-    const payload = JSON.parse(req.body.toString("utf8"));
-    const data = payload.data;
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { orderStatus: 'RETURN_REQUESTED' }
+  });
 
-    const orderNumber = data?.order?.order_id;
-    const paymentStatus = data?.payment?.payment_status;
-
-    if (!orderNumber) {
-      return res.status(400).json({ message: "Invalid payload" });
-    }
-
-    const order = await prisma.order.findUnique({
-      where: { orderNumber },
-      include: { items: true }
-    });
-
-    if (!order) return res.status(404).json({ message: "Order not found" });
-
-    // 🔁 Idempotency
-    if (order.paymentStatus === "success") {
-      return res.status(200).json({ message: "Already processed" });
-    }
-
-    // ✅ PAYMENT SUCCESS
-    if (paymentStatus === "SUCCESS") {
-      await prisma.$transaction(async (tx) => {
-
-        // 🔹 Update order
-        await tx.order.update({
-          where: { id: order.id },
-          data: {
-            paymentStatus: "success",
-            orderStatus: "confirmed"
-          }
-        });
-
-        // 🔹 UPDATE STOCK (0 / 1)
-        for (const item of order.items) {
-          if (item.variantId) {
-            await tx.productVariant.updateMany({
-              where: { id: item.variantId, stock: 1 },
-              data: { stock: 0 }
-            });
-          } else {
-            await tx.product.updateMany({
-              where: { id: item.productId, stock: 1 },
-              data: { stock: 0 }
-            });
-          }
-        }
-
-        // 🔹 CLEAR CART
-        await tx.cartItem.deleteMany({
-          where: { cart: { userId: order.userId } }
-        });
-
-        await tx.cart.deleteMany({
-          where: { userId: order.userId }
-        });
-      });
-    }
-
-    return res.status(200).json({ success: true });
-
-  } catch (error) {
-    console.error("Webhook error:", error);
-    return res.status(500).json({ message: "Webhook failed" });
-  }
+  res.json({ success: true });
 };

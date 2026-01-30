@@ -16,19 +16,19 @@ enum Role {
 // USER
 // =======================================
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
-  phone     String?
-  username  String
-  password  String
-  role      Role      @default(USER)
+  id       Int     @id @default(autoincrement())
+  email    String  @unique
+  phone    String?
+  username String
+  password String
+  role     Role    @default(USER)
 
   addresses Address[]
   orders    Order[]
   carts     Cart[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([username])
   @@index([phone])
@@ -39,18 +39,18 @@ model User {
 // ADDRESS
 // =======================================
 model Address {
-  id        Int      @id @default(autoincrement())
-  fullName  String
-  phone     String
-  line1     String
-  line2     String?
-  city      String
-  landmark  String?
-  state     String
-  pincode   String
+  id       Int     @id @default(autoincrement())
+  fullName String
+  phone    String
+  line1    String
+  line2    String?
+  city     String
+  landmark String?
+  state    String
+  pincode  String
 
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -62,19 +62,19 @@ model Address {
 // BRAND
 // =======================================
 model Brand {
-  id              Int          @id @default(autoincrement())
-  name            String       @unique
-  slug            String       @unique
-  isActive        Boolean      @default(true)
+  id              Int     @id @default(autoincrement())
+  name            String  @unique
+  slug            String  @unique
+  isActive        Boolean @default(true)
   description     String?
   metaTitle       String?
   metaDescription String?
 
-  image           BrandImage?
-  products        Product[]
+  image    BrandImage?
+  products Product[]
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([isActive])
 }
@@ -83,31 +83,31 @@ model Brand {
 // BRAND IMAGE
 // =======================================
 model BrandImage {
-  id        Int     @id @default(autoincrement())
-  url       String?
-  publicId  String?
-  brandId   Int     @unique
-  brand     Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  id       Int     @id @default(autoincrement())
+  url      String?
+  publicId String?
+  brandId  Int     @unique
+  brand    Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
 }
 
 // =======================================
 // CATEGORY
 // =======================================
 model Category {
-  id              Int           @id @default(autoincrement())
-  name            String
-  slug            String        @unique
-  isActive        Boolean       @default(true)
+  id       Int     @id @default(autoincrement())
+  name     String
+  slug     String  @unique
+  isActive Boolean @default(true)
 
   metaTitle       String?
   metaDescription String?
 
-  image           CategoryImage?
-  subCategories   SubCategory[]
-  products        Product[]
+  image         CategoryImage?
+  subCategories SubCategory[]
+  products      Product[]
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([isActive])
 }
@@ -127,23 +127,23 @@ model CategoryImage {
 // SUB CATEGORY
 // =======================================
 model SubCategory {
-  id              Int              @id @default(autoincrement())
-  name            String
-  slug            String           @unique
-  serviceCharges  Float            @default(0)
-  isActive        Boolean          @default(true)
+  id             Int     @id @default(autoincrement())
+  name           String
+  slug           String  @unique
+  serviceCharges Float   @default(0)
+  isActive       Boolean @default(true)
 
   metaTitle       String?
   metaDescription String?
 
-  categoryId      Int
-  category        Category         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  image           SubCategoryImage?
-  products        Product[]
+  image    SubCategoryImage?
+  products Product[]
 
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([categoryId])
   @@index([isActive])
@@ -153,57 +153,57 @@ model SubCategory {
 // SUB CATEGORY IMAGE
 // =======================================
 model SubCategoryImage {
-  id             Int          @id @default(autoincrement())
-  url            String?
-  publicId       String?
-  subCategoryId  Int          @unique
-  subCategory    SubCategory  @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
+  id            Int         @id @default(autoincrement())
+  url           String?
+  publicId      String?
+  subCategoryId Int         @unique
+  subCategory   SubCategory @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
 }
 
 // =======================================
 // PRODUCT (MOST IMPORTANT)
 // =======================================
 model Product {
-  id              Int       @id @default(autoincrement())
-  name            String
-  slug            String    @unique
-  description     String
-  price           Float
-  discount        Int       @default(0)
-  sku             String?   @unique
-  stock           Int
-  rating          Float     @default(0)
+  id          Int     @id @default(autoincrement())
+  name        String
+  slug        String  @unique
+  description String
+  price       Float
+  discount    Int     @default(0)
+  sku         String? @unique
+  stock       Int
+  rating      Float   @default(0)
 
-  featured        Boolean   @default(false)
-  bestSeller      Boolean   @default(false)
-  status          Boolean   @default(true)
+  featured   Boolean @default(false)
+  bestSeller Boolean @default(false)
+  status     Boolean @default(true)
 
-  serviceCharges  Float     @default(0)
+  serviceCharges Float @default(0)
 
-  weight          Float
-  length          Float
-  width           Float
-  height          Float
+  weight Float
+  length Float
+  width  Float
+  height Float
 
-  categoryId      Int
-  subCategoryId   Int
-  brandId         Int
+  categoryId    Int
+  subCategoryId Int
+  brandId       Int
 
-  category        Category     @relation(fields: [categoryId], references: [id])
-  subCategory     SubCategory  @relation(fields: [subCategoryId], references: [id])
-  brand           Brand        @relation(fields: [brandId], references: [id])
+  category    Category    @relation(fields: [categoryId], references: [id])
+  subCategory SubCategory @relation(fields: [subCategoryId], references: [id])
+  brand       Brand       @relation(fields: [brandId], references: [id])
 
-  images          ProductImage[]
-  variants        ProductVariant[]
-  specifications  ProductSpecification[]
-  offerPrices     ProductOfferPrice[]
-  antivirusKeys   ProductAntivirusKey[]
-  warranties      ProductWarranty[]
-  pincodes        ProductPincode[]
-  tags            ProductTag[]
-  cartItems       CartItem[]
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  images         ProductImage[]
+  variants       ProductVariant[]
+  specifications ProductSpecification[]
+  offerPrices    ProductOfferPrice[]
+  antivirusKeys  ProductAntivirusKey[]
+  warranties     ProductWarranty[]
+  pincodes       ProductPincode[]
+  tags           ProductTag[]
+  cartItems      CartItem[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
   @@index([categoryId])
   @@index([subCategoryId])
@@ -229,22 +229,22 @@ model ProductImage {
 }
 
 model ProductVariant {
-  id        Int     @id @default(autoincrement())
-  name      String?
-  sku       String?
-  price     Float   @default(1)
-  stock     Int     @default(1)
+  id    Int     @id @default(autoincrement())
+  name  String?
+  sku   String?
+  price Float   @default(1)
+  stock Int     @default(1)
 
   productId Int
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  images    ProductVariantImage[]
+  images ProductVariantImage[]
 
   @@index([productId])
 }
 
 model ProductVariantImage {
-  id        Int     @id @default(autoincrement())
+  id        Int            @id @default(autoincrement())
   url       String?
   publicId  String?
   variantId Int
@@ -274,13 +274,13 @@ model ProductOfferPrice {
 }
 
 model ProductAntivirusKey {
-  id         Int      @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   licenseKey String?
-  status     String   @default("available")
+  status     String    @default("available")
   soldTo     String?
   soldAt     DateTime?
   productId  Int
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
   @@index([status])
@@ -320,34 +320,33 @@ model ProductTag {
 // CART
 // =======================================
 model Cart {
-  id         Int       @id @default(autoincrement())
-  userId     Int?
-  visitorId  String?
-  isActive   Boolean   @default(true)
-  expiresAt  DateTime?
+  id        Int       @id @default(autoincrement())
+  userId    Int?
+  visitorId String?
+  isActive  Boolean   @default(true)
+  expiresAt DateTime?
 
-  items      CartItem[]
-  user       User?     @relation(fields: [userId], references: [id])
+  items CartItem[]
+  user  User?      @relation(fields: [userId], references: [id])
 
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([visitorId])
   @@index([isActive])
 }
 
-
 model CartItem {
-  id        Int      @id @default(autoincrement())
-  cartId    Int
-  productId Int
-  variantId Int?
-  quantity  Int
+  id              Int   @id @default(autoincrement())
+  cartId          Int
+  productId       Int
+  variantId       Int?
+  quantity        Int
   shippingCharges Float @default(100)
 
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id])
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -355,7 +354,6 @@ model CartItem {
   // ✅ For products WITH variants
   @@unique([cartId, productId, variantId])
 }
-
 
 // =======================================
 // COUPON
@@ -370,67 +368,104 @@ model Coupon {
   expiryDate   DateTime?
   noExpiry     Boolean   @default(false)
 
-  products     CouponProduct[]
+  products CouponProduct[]
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([applyTo])
   @@index([noExpiry])
 }
 
 model CouponProduct {
-  id        Int     @id @default(autoincrement())
+  id        Int @id @default(autoincrement())
   couponId  Int
   productId Int
 
-  coupon    Coupon  @relation(fields: [couponId], references: [id], onDelete: Cascade)
- 
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
   @@unique([couponId, productId])
   @@index([couponId])
   @@index([productId])
- 
 }
 
 // =======================================
 // PINCODE
 // =======================================
 model Pincode {
-  id        Int      @id @default(autoincrement())
-  pincode   String   @unique
-  status    Boolean  @default(true)
+  id      Int     @id @default(autoincrement())
+  pincode String  @unique
+  status  Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-// =======================================
+// ================================
+// ENUMS
+// ================================
+enum OrderStatus {
+  CONFIRMED
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  RETURN_REQUESTED
+  RETURNED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  COD
+  CARD
+  UPI
+  ONLINE
+  NETBANKING
+  WALLET
+}
+
+enum RefundStatus {
+  INITIATED
+  SUCCESS
+  FAILED
+}
+
+// ================================
 // ORDER
-// =======================================
+// ================================
 model Order {
-  id               Int      @id @default(autoincrement())
-  userId           Int
-  orderNumber      String   @unique
+  id          Int    @id @default(autoincrement())
+  userId      Int
+  orderNumber String @unique
 
-  paymentMethod    String
-  paymentStatus    String   @default("pending")
-  orderStatus      String   @default("placed")
+  orderStatus   OrderStatus   @default(CONFIRMED)
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentMethod PaymentMethod @default(ONLINE)
 
-  cashfreeOrderId  String            // REQUIRED ✅ (Option 1)
-  paymentSessionId String?            // Optional ✅
+  cashfreeOrderId  String
+  paymentSessionId String?
   totalAmount      Float
+  totalMrp         Float?
+  discountAmount   Float?
 
-  cancelReason     String?
+  cancelReason String?
 
-  items           OrderItem[]
-  address         OrderAddress?
-  tracking        OrderTracking[]
-  refund          OrderRefund?
+  user     User            @relation(fields: [userId], references: [id])
+  items    OrderItem[]
+  address  OrderAddress?
+  tracking OrderTracking[]
+  payment  OrderPayment?
+  refund   OrderRefund?
+  return   OrderReturn?
 
-  user            User     @relation(fields: [userId], references: [id])
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([orderStatus])
@@ -438,61 +473,111 @@ model Order {
   @@index([createdAt])
 }
 
+// ================================
+// ORDER ITEMS
+// ================================
 model OrderItem {
-  id        Int     @id @default(autoincrement())
+  id        Int  @id @default(autoincrement())
   orderId   Int
   productId Int
-  variantId Int? 
-  name      String?
-  variantName String?
-  price     Float?
-  quantity  Int?
-  image     String?
+  variantId Int?
 
-  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productName String?
+  variantName String?
+  price       Float
+  quantity    Int
+  image       String?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
   @@index([productId])
 }
 
+// ================================
+// ORDER ADDRESS
+// ================================
 model OrderAddress {
-  id        Int     @id @default(autoincrement())
-  orderId   Int     @unique
+  id      Int @id @default(autoincrement())
+  orderId Int @unique
 
-  fullName  String?
-  phone     String?
-  line1     String?
-  line2     String?
-  landmark  String?
-  city      String?
-  state     String?
-  pincode   String?
-  country   String?
+  fullName String
+  phone    String
+  line1    String
+  line2    String?
+  landmark String?
+  city     String
+  state    String
+  pincode  String
+ country   String? @default("india")
 
-  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
+// ================================
+// ORDER TRACKING (TIMELINE)
+// ================================
 model OrderTracking {
-  id          Int      @id @default(autoincrement())
+  id          Int         @id @default(autoincrement())
   orderId     Int
-  stepKey     String
+  stepKey     OrderStatus
   label       String
-  completed   Boolean  @default(false)
+  sequence    Int
+  completed   Boolean     @default(false)
   completedAt DateTime?
 
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
-  @@index([completed])
+  @@index([sequence])
 }
 
-model OrderRefund {
-  id               Int      @id @default(autoincrement())
-  orderId          Int      @unique
-  amount           Float    @default(0)
-  reason           String?
-  refundedAt       DateTime?
-  cashfreeRefundId String?
+// ================================
+// ORDER PAYMENT
+// ================================
+model OrderPayment {
+  id      Int @id @default(autoincrement())
+  orderId Int @unique
 
-  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus
+  transactionId   String?
+  gatewayResponse Json?
+
+  paidAt DateTime?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// ================================
+// ORDER REFUND
+// ================================
+model OrderRefund {
+  id      Int @id @default(autoincrement())
+  orderId Int @unique
+
+  amount       Float
+  reason       String?
+  refundStatus RefundStatus @default(INITIATED)
+
+  cashfreeRefundId String?
+  refundedAt       DateTime?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// ================================
+// ORDER RETURN
+// ================================
+model OrderReturn {
+  id      Int @id @default(autoincrement())
+  orderId Int @unique
+
+  reason      String
+  requestedAt DateTime  @default(now())
+  approvedAt  DateTime?
+  receivedAt  DateTime?
+  completedAt DateTime?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }

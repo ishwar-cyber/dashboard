@@ -1,6 +1,18 @@
 -- CreateEnum
 CREATE TYPE "Role" AS ENUM ('USER', 'ADMIN');
 
+-- CreateEnum
+CREATE TYPE "OrderStatus" AS ENUM ('CONFIRMED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RETURN_REQUESTED', 'RETURNED');
+
+-- CreateEnum
+CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'PAID', 'FAILED', 'REFUNDED');
+
+-- CreateEnum
+CREATE TYPE "PaymentMethod" AS ENUM ('COD', 'CARD', 'UPI', 'ONLINE', 'NETBANKING', 'WALLET');
+
+-- CreateEnum
+CREATE TYPE "RefundStatus" AS ENUM ('INITIATED', 'SUCCESS', 'FAILED');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" SERIAL NOT NULL,
@@ -246,24 +258,12 @@ CREATE TABLE "CartItem" (
     "cartId" INTEGER NOT NULL,
     "productId" INTEGER NOT NULL,
     "variantId" INTEGER,
-    "name" TEXT NOT NULL,
-    "price" DOUBLE PRECISION NOT NULL,
-    "discount" INTEGER NOT NULL DEFAULT 0,
     "quantity" INTEGER NOT NULL,
     "shippingCharges" DOUBLE PRECISION NOT NULL DEFAULT 100,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "CartItem_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "CartItemImage" (
-    "id" SERIAL NOT NULL,
-    "url" TEXT NOT NULL,
-    "cartItemId" INTEGER NOT NULL,
-
-    CONSTRAINT "CartItemImage_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -307,11 +307,14 @@ CREATE TABLE "Order" (
     "id" SERIAL NOT NULL,
     "userId" INTEGER NOT NULL,
     "orderNumber" TEXT NOT NULL,
-    "paymentMethod" TEXT NOT NULL,
-    "paymentStatus" TEXT NOT NULL DEFAULT 'pending',
-    "orderStatus" TEXT NOT NULL DEFAULT 'placed',
+    "orderStatus" "OrderStatus" NOT NULL DEFAULT 'CONFIRMED',
+    "paymentStatus" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
+    "paymentMethod" "PaymentMethod" NOT NULL DEFAULT 'ONLINE',
     "cashfreeOrderId" TEXT NOT NULL,
+    "paymentSessionId" TEXT,
     "totalAmount" DOUBLE PRECISION NOT NULL,
+    "totalMrp" DOUBLE PRECISION,
+    "discountAmount" DOUBLE PRECISION,
     "cancelReason" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -324,9 +327,11 @@ CREATE TABLE "OrderItem" (
     "id" SERIAL NOT NULL,
     "orderId" INTEGER NOT NULL,
     "productId" INTEGER NOT NULL,
-    "name" TEXT,
-    "price" DOUBLE PRECISION,
-    "quantity" INTEGER,
+    "variantId" INTEGER,
+    "productName" TEXT,
+    "variantName" TEXT,
+    "price" DOUBLE PRECISION NOT NULL,
+    "quantity" INTEGER NOT NULL,
     "image" TEXT,
 
     CONSTRAINT "OrderItem_pkey" PRIMARY KEY ("id")
@@ -336,15 +341,15 @@ CREATE TABLE "OrderItem" (
 CREATE TABLE "OrderAddress" (
     "id" SERIAL NOT NULL,
     "orderId" INTEGER NOT NULL,
-    "fullName" TEXT,
-    "phone" TEXT,
-    "line1" TEXT,
+    "fullName" TEXT NOT NULL,
+    "phone" TEXT NOT NULL,
+    "line1" TEXT NOT NULL,
     "line2" TEXT,
     "landmark" TEXT,
-    "city" TEXT,
-    "state" TEXT,
-    "pincode" TEXT,
-    "country" TEXT,
+    "city" TEXT NOT NULL,
+    "state" TEXT NOT NULL,
+    "pincode" TEXT NOT NULL,
+    "country" TEXT DEFAULT 'india',
 
     CONSTRAINT "OrderAddress_pkey" PRIMARY KEY ("id")
 );
@@ -353,8 +358,9 @@ CREATE TABLE "OrderAddress" (
 CREATE TABLE "OrderTracking" (
     "id" SERIAL NOT NULL,
     "orderId" INTEGER NOT NULL,
-    "stepKey" TEXT NOT NULL,
+    "stepKey" "OrderStatus" NOT NULL,
     "label" TEXT NOT NULL,
+    "sequence" INTEGER NOT NULL,
     "completed" BOOLEAN NOT NULL DEFAULT false,
     "completedAt" TIMESTAMP(3),
 
@@ -362,15 +368,42 @@ CREATE TABLE "OrderTracking" (
 );
 
 -- CreateTable
+CREATE TABLE "OrderPayment" (
+    "id" SERIAL NOT NULL,
+    "orderId" INTEGER NOT NULL,
+    "paymentMethod" "PaymentMethod" NOT NULL,
+    "paymentStatus" "PaymentStatus" NOT NULL,
+    "transactionId" TEXT,
+    "gatewayResponse" JSONB,
+    "paidAt" TIMESTAMP(3),
+
+    CONSTRAINT "OrderPayment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "OrderRefund" (
     "id" SERIAL NOT NULL,
     "orderId" INTEGER NOT NULL,
-    "amount" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "amount" DOUBLE PRECISION NOT NULL,
     "reason" TEXT,
-    "refundedAt" TIMESTAMP(3),
+    "refundStatus" "RefundStatus" NOT NULL DEFAULT 'INITIATED',
     "cashfreeRefundId" TEXT,
+    "refundedAt" TIMESTAMP(3),
 
     CONSTRAINT "OrderRefund_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "OrderReturn" (
+    "id" SERIAL NOT NULL,
+    "orderId" INTEGER NOT NULL,
+    "reason" TEXT NOT NULL,
+    "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "approvedAt" TIMESTAMP(3),
+    "receivedAt" TIMESTAMP(3),
+    "completedAt" TIMESTAMP(3),
+
+    CONSTRAINT "OrderReturn_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -500,13 +533,7 @@ CREATE INDEX "Cart_visitorId_idx" ON "Cart"("visitorId");
 CREATE INDEX "Cart_isActive_idx" ON "Cart"("isActive");
 
 -- CreateIndex
-CREATE INDEX "CartItem_cartId_idx" ON "CartItem"("cartId");
-
--- CreateIndex
-CREATE INDEX "CartItem_productId_idx" ON "CartItem"("productId");
-
--- CreateIndex
-CREATE INDEX "CartItemImage_cartItemId_idx" ON "CartItemImage"("cartItemId");
+CREATE UNIQUE INDEX "CartItem_cartId_productId_variantId_key" ON "CartItem"("cartId", "productId", "variantId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Coupon_code_key" ON "Coupon"("code");
@@ -557,10 +584,16 @@ CREATE UNIQUE INDEX "OrderAddress_orderId_key" ON "OrderAddress"("orderId");
 CREATE INDEX "OrderTracking_orderId_idx" ON "OrderTracking"("orderId");
 
 -- CreateIndex
-CREATE INDEX "OrderTracking_completed_idx" ON "OrderTracking"("completed");
+CREATE INDEX "OrderTracking_sequence_idx" ON "OrderTracking"("sequence");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OrderPayment_orderId_key" ON "OrderPayment"("orderId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "OrderRefund_orderId_key" ON "OrderRefund"("orderId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OrderReturn_orderId_key" ON "OrderReturn"("orderId");
 
 -- AddForeignKey
 ALTER TABLE "Address" ADD CONSTRAINT "Address_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -620,7 +653,7 @@ ALTER TABLE "Cart" ADD CONSTRAINT "Cart_userId_fkey" FOREIGN KEY ("userId") REFE
 ALTER TABLE "CartItem" ADD CONSTRAINT "CartItem_cartId_fkey" FOREIGN KEY ("cartId") REFERENCES "Cart"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "CartItemImage" ADD CONSTRAINT "CartItemImage_cartItemId_fkey" FOREIGN KEY ("cartItemId") REFERENCES "CartItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CartItem" ADD CONSTRAINT "CartItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "CouponProduct" ADD CONSTRAINT "CouponProduct_couponId_fkey" FOREIGN KEY ("couponId") REFERENCES "Coupon"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -638,4 +671,10 @@ ALTER TABLE "OrderAddress" ADD CONSTRAINT "OrderAddress_orderId_fkey" FOREIGN KE
 ALTER TABLE "OrderTracking" ADD CONSTRAINT "OrderTracking_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "OrderPayment" ADD CONSTRAINT "OrderPayment_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "OrderRefund" ADD CONSTRAINT "OrderRefund_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "OrderReturn" ADD CONSTRAINT "OrderReturn_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;

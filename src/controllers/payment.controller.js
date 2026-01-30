@@ -22,7 +22,6 @@ export const cashfreeWebhook = async (req, res) => {
   }
 };
 
-
 export const getPaymentStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
