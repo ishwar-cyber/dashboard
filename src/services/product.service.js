@@ -14,7 +14,8 @@ export const getAllProducts = async (options = {}) => {
     ...(options.search && {
       OR: [
         { name: { contains: options.search, mode: "insensitive" } },
-        { slug: { contains: options.search, mode: "insensitive" } }
+        { slug: { contains: options.search, mode: "insensitive" } },
+        { sku: { contains: options.search, mode: "insensitive" } }
       ]
     })
   };
