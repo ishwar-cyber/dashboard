@@ -1,0 +1,2 @@
+ALTER TABLE "OrderTracking"
+ADD COLUMN IF NOT EXISTS "sequence" INTEGER;
