@@ -8,9 +8,6 @@ CREATE TYPE "OrderStatus" AS ENUM ('CONFIRMED', 'SHIPPED', 'OUT_FOR_DELIVERY', '
 CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'PAID', 'FAILED', 'REFUNDED');
 
 -- CreateEnum
-CREATE TYPE "PaymentMethod" AS ENUM ('COD', 'CARD', 'UPI', 'ONLINE', 'NETBANKING', 'WALLET');
-
--- CreateEnum
 CREATE TYPE "RefundStatus" AS ENUM ('INITIATED', 'SUCCESS', 'FAILED');
 
 -- CreateTable
@@ -309,7 +306,7 @@ CREATE TABLE "Order" (
     "orderNumber" TEXT NOT NULL,
     "orderStatus" "OrderStatus" NOT NULL DEFAULT 'CONFIRMED',
     "paymentStatus" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
-    "paymentMethod" "PaymentMethod" NOT NULL DEFAULT 'ONLINE',
+    "paymentMethod" TEXT NOT NULL DEFAULT 'ONLINE',
     "cashfreeOrderId" TEXT NOT NULL,
     "paymentSessionId" TEXT,
     "totalAmount" DOUBLE PRECISION NOT NULL,
@@ -371,7 +368,7 @@ CREATE TABLE "OrderTracking" (
 CREATE TABLE "OrderPayment" (
     "id" SERIAL NOT NULL,
     "orderId" INTEGER NOT NULL,
-    "paymentMethod" "PaymentMethod" NOT NULL,
+    "paymentMethod" TEXT NOT NULL,
     "paymentStatus" "PaymentStatus" NOT NULL,
     "transactionId" TEXT,
     "gatewayResponse" JSONB,

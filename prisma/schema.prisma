@@ -421,15 +421,6 @@ enum PaymentStatus {
   REFUNDED
 }
 
-enum PaymentMethod {
-  COD
-  CARD
-  UPI
-  ONLINE
-  NETBANKING
-  WALLET
-}
-
 enum RefundStatus {
   INITIATED
   SUCCESS
@@ -446,7 +437,7 @@ model Order {
 
   orderStatus   OrderStatus   @default(CONFIRMED)
   paymentStatus PaymentStatus @default(PENDING)
-  paymentMethod PaymentMethod @default(ONLINE)
+  paymentMethod String        @default("ONLINE")
 
   cashfreeOrderId  String
   paymentSessionId String?
@@ -509,7 +500,7 @@ model OrderAddress {
   city     String
   state    String
   pincode  String
- country   String? @default("india")
+  country  String? @default("india")
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
@@ -539,7 +530,7 @@ model OrderPayment {
   id      Int @id @default(autoincrement())
   orderId Int @unique
 
-  paymentMethod   PaymentMethod
+  paymentMethod   String
   paymentStatus   PaymentStatus
   transactionId   String?
   gatewayResponse Json?
