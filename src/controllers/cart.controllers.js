@@ -57,7 +57,6 @@ export const clearCart = async (req, res) => {
 };
 export const increaseDecreaseQuantity = async (req, res) => {
   try {
-     console.log('ACTION', req.body);
     const id = Number(req.params.id);
     const { action } = req.body;
     const { userId, visitorId } = await getIds(req);

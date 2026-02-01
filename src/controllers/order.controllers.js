@@ -88,8 +88,8 @@ export const createOrder = async (req, res) => {
           customer_phone: shippingAddress.phone
         },
         order_meta: {
-          return_url: "http://localhost:4400/payment-status?order_id={order_id}",
-          notify_url: "http://localhost:4400/payment/webhook"
+          return_url: "https://application-shoppyness.vercel.app/payment-status?order_id={order_id}",
+          notify_url: "https://application-shoppyness.vercel.app/payment/webhook"
         }
       },
       {
