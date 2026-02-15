@@ -3,7 +3,7 @@ import prisma from "../config/prisma.js";
 export const connectToPostgre = async () => {
 	try {
 		await prisma.$connect();
-		console.log("PostgreSQL connected via Prisma");
+		console.log(`Connect to ${process.env.DATABASE_URL} database in development mode`);
 	} catch (error) {
 		console.error(error);
 		process.exit(1);

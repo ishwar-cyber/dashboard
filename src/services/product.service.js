@@ -93,7 +93,15 @@ export const getProductBySlug = async (slug) => {
       category: true,
       subCategory: true,
       brand: true,
-      variants: true,
+      warranties: true,
+      offerPrices: true,
+      variants: {
+        select: { id: true, name: true, sku: true, price: true,stock: true, 
+          images: {
+            select: { id: true, url: true, publicId: true }
+          }
+        }
+      },
       specifications: true,
       pincodes: true
     }
@@ -205,111 +213,129 @@ export const createProduct = async (data) => {
 /* ===============================
    UPDATE PRODUCT (NEW – SAFE)
 ================================ */
-export const updateProductById = async (productId, payload) => {
-  const id = Number(productId);
-  return prisma.$transaction(async (tx) => {
-    /* ---------- UPDATE PRODUCT CORE ---------- */
-    await tx.product.update({
-      where: { id: id},
-      data: {
-        name: payload.name,
-        description: payload.description,
-        price: payload.price,
-        stock: payload.stock,
-        status: payload.status,
-        weight: payload.weight,
-        width: payload.width,
-        height: payload.height,
-        length: payload.length,
-        categoryId: payload.categoryId,
-        subCategoryId: payload.subCategoryId,
-        brandId: payload.brandId
-      }
-    });
+const buildProductUpdateData = (payload) => {
+  const data = {}
 
+  const fields = [
+    'name',
+    'description',
+    'price',
+    'stock',
+    'status',
+    'weight',
+    'width',
+    'height',
+    'length',
+    'categoryId',
+    'subCategoryId',
+    'brandId'
+  ]
 
-  /* ---------- SYNC PRODUCT IMAGES ---------- */
-  if (Array.isArray(payload.images)) {
-
-    // 1. Get DB images
-    const dbImages = await tx.productImage.findMany({
-      where: { productId: id }
-    });
-
-    const payloadIds = payload.images
-      .filter(img => img.id)
-      .map(img => img.id);
-
-    /* ---------- DELETE REMOVED IMAGES ---------- */
-    await tx.productImage.deleteMany({
-      where: {
-        productId: id,
-        id: { notIn: payloadIds }
-      }
-    });
-
-    /* ---------- UPDATE / CREATE ---------- */
-    for (const img of payload.images) {
-
-      // ❌ skip invalid publicId
-      if (!img.url) continue;
-
-      // UPDATE
-      if (img.id) {
-        await tx.productImage.update({
-          where: { id: img.id },
-          data: {
-            url: img.url,
-            publicId: img.publicId || null
-          }
-        });
-      }
-      // CREATE
-      else {
-        await tx.productImage.create({
-          data: {
-            productId: id,
-            url: img.url,
-            publicId: img.publicId || null
-          }
-        });
-      }
+  for (const field of fields) {
+    if (payload[field] !== undefined) {
+      data[field] = payload[field]
     }
   }
 
+  return data
+}
 
-    /* ---------- SYNC SPECIFICATIONS ---------- */
-    if (Array.isArray(payload.specifications)) {
-      await syncSpecifications(tx, id, payload.specifications);
+export const updateProductById = async (productId, payload) => {
+  const id = Number(productId)
+  if (!Number.isInteger(id)) {
+    throw new Error('Invalid productId')
+  }
+
+  const productData = buildProductUpdateData(payload)
+
+  // ---------------- TRANSACTION (WRITES ONLY) ----------------
+  await prisma.$transaction(async (tx) => {
+
+    // Update product only if fields exist (PATCH behavior)
+    if (Object.keys(productData).length > 0) {
+      await tx.product.update({
+        where: { id },
+        data: productData
+      })
     }
 
-    /* ---------- SYNC OFFER PRICES ---------- */
-    if (Array.isArray(payload.offerPrices)) {
-      await syncOfferPrices(tx, id, payload.offerPrices);
-    }
+    // ---------- IMAGES ----------
+  if (Array.isArray(payload.images)) {
+    const existingIds = payload.images.filter(i => i.id).map(i => i.id)
 
-    /* ---------- SYNC WARRANTIES ---------- */
-    if (Array.isArray(payload.warranties)) {      
-      await syncWarranty(tx, id, payload.warranties);
-    }
-
-    if(Array.isArray(payload.variants)){
-      await syncVariants(tx, id, payload.variants);
-    }
-
-
-    return tx.product.findUnique({
-      where: { id: id },
-      include: {
-        specifications: true,
-        offerPrices: true,
-        warranties: true,
-        variants: true,
-        images: true
+    await tx.productImage.deleteMany({
+      where: {
+        productId: id,
+        ...(existingIds.length && { id: { notIn: existingIds } })
       }
-    });
-  });
-};
+    })
+  
+    const newImages = payload.images
+      .filter(i => !i.id && i.url)
+      .map(i => ({
+        productId: id,
+        url: i.url,
+        publicId: i.publicId ?? null
+      }))
+
+    if (newImages.length) {
+      await tx.productImage.createMany({
+        data: newImages
+      })
+    }
+
+    await Promise.all(
+      payload.images
+        .filter(i => i.id)
+        .map(i =>
+          tx.productImage.update({
+            where: { id: i.id },
+            data: {
+              url: i.url,
+              publicId: i.publicId ?? null
+            }
+          })
+        )
+    )
+  }
+
+
+    // ---------- SPECIFICATIONS ----------
+    if (Array.isArray(payload.specifications)) {
+      await syncSpecifications(tx, id, payload.specifications)
+    }
+
+    // ---------- OFFER PRICES ----------
+    if (Array.isArray(payload.offerPrices)) {
+      await syncOfferPrices(tx, id, payload.offerPrices)
+    }
+
+    // ---------- WARRANTIES ----------
+    if (Array.isArray(payload.warranties)) {
+      await syncWarranty(tx, id, payload.warranties)
+    }
+
+    // ---------- VARIANTS ----------
+    if (Array.isArray(payload.variants)) {
+      console.log('entry in variant', payload.variants);
+      
+      await syncVariants(tx, id, payload.variants)
+    }
+  })
+
+  // ---------------- READ OUTSIDE TRANSACTION ----------------
+  return prisma.product.findUnique({
+    where: { id },
+    include: {
+      specifications: true,
+      offerPrices: true,
+      warranties: true,
+      variants: true,
+      images: true
+    }
+  })
+}
+
 
 /* ===============================
    DELETE PRODUCT (NEW – SAFE)
@@ -741,7 +767,8 @@ async function syncWarranty(tx, productId, warranties) {
 
 export async function syncVariants(tx, productId, variants = []) {
   if (!Array.isArray(variants)) return;
-
+  console.log('syncVariants called with:', variants);
+  
   /* 1️⃣ Fetch DB variants */
   const dbVariants = await tx.productVariant.findMany({
     where: { productId },

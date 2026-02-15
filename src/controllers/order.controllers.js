@@ -436,7 +436,7 @@ export const cancelOrder = async (req, res) => {
     if (order.orderStatus === 'cancelled') return res.status(400).json({ success: false, message: 'Order already cancelled' });
 
     // Check if order can be cancelled
-    const cancellableStatuses = ['placed', 'confirmed'];
+    const cancellableStatuses = ['confirmed'];
     if (!cancellableStatuses.includes(order.orderStatus)) return res.status(400).json({ success: false, message: 'Order cannot be cancelled at this stage' });
 
     // Update tracking: mark cancelled step completed in OrderTracking table
