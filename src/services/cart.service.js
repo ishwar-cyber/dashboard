@@ -1,20 +1,33 @@
 import prisma from '../config/prisma.js';
 
 /* ---------------- CALCULATIONS ---------------- */
-const calculateTotals = async(cart) => {
+export const calculateTotals = (cart) => {
   let subTotal = 0;
   let discount = 0;
   let shipping = 0;
+  let cartCount = 0;
 
-  cart.items.forEach(item => {
-    subTotal += item.product.price * item.quantity;
-    discount += (item?.discount || 0) * item.quantity;
-    shipping += item.shippingCharges;
-  });
+  for (const item of cart.items) {
+    // 🔥 Price Priority:
+    // 1. Variant price (if exists)
+    // 2. Product price (fallback)
+    const price =
+      item.product?.variants?.price != null
+        ? Number(item?.variants.price)
+        : Number(item?.price || 0);
+
+    const qty = Number(item.quantity || 0);
+    const itemDiscount = Number(item.discount || 0);
+    const itemShipping = Number(item.shippingCharges || 0);
+
+    subTotal += price * qty;
+    discount += itemDiscount * qty;
+    shipping += itemShipping;
+    cartCount += qty;
+  }
 
   const total = subTotal - discount + shipping;
-  /* ---------------- CALCULATE CART COUNT ---------------- */
-  const cartCount = cart.items._sum || 0;
+
   return {
     items: cart.items,
     cartCount,
@@ -25,6 +38,7 @@ const calculateTotals = async(cart) => {
   };
 };
 
+
 export const getCartByUserIdAndVisitorId = async ({ userId, visitorId }) => {
   const cart = await prisma.cart.findFirst({
     where: {
@@ -32,30 +46,32 @@ export const getCartByUserIdAndVisitorId = async ({ userId, visitorId }) => {
       ...(userId ? { userId } : { visitorId })
     },
     orderBy: {
-      createdAt: 'asc',
+      createdAt: 'desc'
     },
     include: {
       items: {
         include: {
           product: {
-            select:{
+            select: {
+              id: true,
               name: true,
               price: true,
               images: {
                 take: 1,
                 select: { url: true, publicId: true }
-              },
-              variants:{
-                select: {
-                  name: true,
-                  price: true,
-                  images: {
-                    take: 1,
-                    select: { url: true }
-                  }
-                }
               }
-            },
+            }
+          },
+          variant: {
+            select: {
+              id: true,
+              name: true,
+              price: true,
+              images: {
+                take: 1,
+                select: { url: true }
+              }
+            }
           }
         }
       }
@@ -65,14 +81,52 @@ export const getCartByUserIdAndVisitorId = async ({ userId, visitorId }) => {
   if (!cart) {
     return {
       items: [],
+      cartCount: 0,
       subTotal: 0,
       discount: 0,
       shipping: 0,
       total: 0
     };
   }
-  return await calculateTotals(cart);
+
+  // 🔥 Transform items as per requirement
+  const formattedItems = cart.items.map(item => {
+    const isVariantSelected = !!item.variant;
+
+    const finalName = isVariantSelected
+      ? `${item.product.name} - ${item.variant.name}`
+      : item.product.name;
+
+    const finalPrice = isVariantSelected
+      ? item.variant.price
+      : item.product.price;
+
+    const finalImage = isVariantSelected
+      ? item.variant.images?.[0]?.url
+      : item.product.images?.[0]?.url;
+
+    return {
+      id: item.id,
+      quantity: item.quantity,
+      shippingCharges: item.shippingCharges,
+
+      name: finalName,
+      price: finalPrice,
+      image: finalImage
+    };
+  });
+
+  const formattedCart = {
+    id: cart.id,
+    userId: cart.userId,
+    visitorId: cart.visitorId,
+    items: formattedItems
+  };
+
+  return calculateTotals(formattedCart);
 };
+
+
 
 export const addToCartService = async ({
   userId = null,
