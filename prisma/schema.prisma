@@ -499,6 +499,7 @@ model OrderItem {
 
   productName String?
   variantName String?
+  sku String?
   price       Float
   quantity    Int
   image       String?

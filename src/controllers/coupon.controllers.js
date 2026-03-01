@@ -10,27 +10,47 @@ export const createCoupon = async (req, res) => {
             startDate,
             expiryDate,
             noExpiry,
-            products
+            products,
+            categories
         } = req.body;
+
+        // Normalize and accept different shapes for products/categories:
+        // - array of numbers: [1,2]
+        // - array of objects: [{ productId: 1 }] or [{ id: 1 }]
+        const normalizeId = (val, keyName) => {
+            if (val == null) return null;
+            if (typeof val === 'object') return Number(val[keyName] ?? val.id ?? null);
+            return Number(val);
+        };
+
+        const productCreates = Array.isArray(products)
+            ? products
+                  .map((p) => ({ productId: normalizeId(p, 'productId') }))
+                  .filter((x) => Number.isFinite(x.productId))
+            : [];
+
+        const categoryCreates = Array.isArray(categories)
+            ? categories
+                  .map((c) => ({ categoryId: normalizeId(c, 'categoryId') }))
+                  .filter((x) => Number.isFinite(x.categoryId))
+            : [];
 
         const prismaData = {
             code,
-            discount,
+            discount: discount != null ? Number(discount) : undefined,
             discountType,
             applyTo,
-            startDate,
-            expiryDate,
-            noExpiry,
+            startDate: startDate ? new Date(startDate) : undefined,
+            expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+            noExpiry: !!noExpiry,
 
-            ...(products?.length
-                ? {
-                    products: {
-                    create: products.map(p => ({
-                        productId: p.productId
-                    }))
-                    }
-                }
-                : {}) // ✅ empty array → ignored
+            ...(productCreates.length
+                ? { products: { create: productCreates } }
+                : {}),
+
+            ...(categoryCreates.length
+                ? { categories: { create: categoryCreates } }
+                : {}),
         };
 
         const coupon = await prisma.coupon.create({ data: prismaData });

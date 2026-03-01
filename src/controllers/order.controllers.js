@@ -334,19 +334,57 @@ export const getOrderByIdAdmin = async (req, res) => {
   try {
     const { orderId } = req.params;
 
-    // Admin view: support numeric id or orderNumber
+    const includeConfig = {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          phone: true,
+          role: true,
+          createdAt: true
+        }
+      },
+      items: true,
+      address: true,
+      tracking: true,
+      refund: true
+    };
+
     let adminOrder = null;
+
     if (!isNaN(Number(orderId))) {
-      adminOrder = await prisma.order.findUnique({ where: { id: Number(orderId) }, include: { user: { select: { username: true, email: true, phone: true, role: true, createdAt: true, id: true } }, items: true, address: true, tracking: true, refund: true } });
+      adminOrder = await prisma.order.findUnique({
+        where: { id: Number(orderId) },
+        include: includeConfig
+      });
     } else {
-      adminOrder = await prisma.order.findFirst({ where: { orderNumber: orderId }, include: { user: { select: { username: true, email: true, phone: true, role: true, createdAt: true, id: true } }, items: true, address: true, tracking: true, refund: true } });
+      adminOrder = await prisma.order.findFirst({
+        where: { orderNumber: orderId },
+        include: includeConfig
+      });
     }
 
-    if (!adminOrder) return res.status(404).json({ success: false, message: 'Order not found' });
+    if (!adminOrder) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
 
     // Summary
-    const totalItems = adminOrder.items?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0;
-    const totalPrice = adminOrder.items?.reduce((sum, i) => sum + (i.price || 0) * (i.quantity || 0), 0) || 0;
+    const totalItems =
+      adminOrder.items?.reduce(
+        (sum, i) => sum + (i.quantity || 0),
+        0
+      ) || 0;
+
+    const totalPrice =
+      adminOrder.items?.reduce(
+        (sum, i) =>
+          sum + (i.price || 0) * (i.quantity || 0),
+        0
+      ) || 0;
 
     const summary = {
       orderNumber: adminOrder.orderNumber,
@@ -355,20 +393,65 @@ export const getOrderByIdAdmin = async (req, res) => {
       paymentMethod: adminOrder.paymentMethod,
       paymentStatus: adminOrder.paymentStatus,
       orderStatus: adminOrder.orderStatus,
-      createdAt: adminOrder.createdAt,
+      createdAt: adminOrder.createdAt
     };
 
     // Tracking summary
     let trackingSummary = null;
-    if (Array.isArray(adminOrder.tracking)) trackingSummary = adminOrder.tracking.find(t => t.completed) || adminOrder.tracking[0];
 
-    const result = Object.assign({}, adminOrder, { summary, trackingSummary, adminView: true });
+    if (Array.isArray(adminOrder.tracking)) {
+      trackingSummary =
+        adminOrder.tracking.find(t => t.completed) ||
+        adminOrder.tracking[0] ||
+        null;
+    }
 
-    return res.json({ success: true, data: result });
+    return res.json({
+      success: true,
+      data: {
+
+        order: {
+          id: adminOrder.id,
+          orderNumber: adminOrder.orderNumber,
+          paymentMethod: adminOrder.paymentMethod,
+          paymentStatus: adminOrder.paymentStatus,
+          orderStatus: adminOrder.orderStatus,
+          createdAt: adminOrder.createdAt
+        },
+
+        user: adminOrder.user,
+
+        items: adminOrder.items.map(item => ({
+          id: item.id,
+          productId: item.productId,
+          productName: item.productName,
+          sku: item.sku,  // ✅ SKU added
+          quantity: item.quantity,
+          price: item.price,
+          total: (item.price || 0) * (item.quantity || 0)
+        })),
+
+        address: adminOrder.address,
+
+        tracking: {
+          history: adminOrder.tracking,
+          latest: trackingSummary
+        },
+
+        refund: adminOrder.refund,
+
+        summary
+      }
+    });
 
   } catch (error) {
     console.error("Admin Get Order Error:", error);
-    return res.status(500).json({ success: false, message: 'Failed to retrieve order', error: error.message });
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve order",
+      error: error.message
+    });
   }
 };
 
