@@ -21,9 +21,10 @@ const resolveItemPrice = (product, variantId) => {
   };
 };
 
+
 export const createOrder = async (req, res) => {
   try {
-    const { shippingAddressId, items, couponCode } = req.body;
+    const { shippingAddressId, items } = req.body;
     const userId = Number(req.user.id);
 
     if (!shippingAddressId) {
@@ -34,7 +35,7 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    // 🔹 Fetch address
+    // 🔹 Fetch Shipping Address
     const shippingAddress = await prisma.address.findUnique({
       where: { id: Number(shippingAddressId) }
     });
@@ -47,35 +48,94 @@ export const createOrder = async (req, res) => {
     let calculatedTotal = 0;
     const orderNumber = generateOrderNumber();
 
-    // 🔒 TRANSACTION (ONLY SNAPSHOT + PRICE CALCULATION)
+    // ===============================
+    // 🔒 TRANSACTION (VALIDATION)
+    // ===============================
     await prisma.$transaction(async (tx) => {
       for (const item of items) {
-        const product = await tx.product.findUnique({
-          where: { id: Number(item.productId) },
-          include: { variants: true, images: true }
+
+        const cartItemId = Number(item.cartItem ?? item.id);
+        if (!Number.isInteger(cartItemId)) {
+          throw new Error("Invalid cart item id");
+        }
+
+        const cartItem = await tx.cartItem.findUnique({
+          where: { id: cartItemId },
+          include: {
+            cart: true,
+            product: {
+              include: {
+                variants: true,
+                images: true
+              }
+            }
+          }
         });
 
+        if (!cartItem) throw new Error("Cart item not found");
+        if (!cartItem.cart) throw new Error("Cart not found");
+
+        if (Number(cartItem.cart.userId) !== userId) {
+          throw new Error("Cart item does not belong to user");
+        }
+
+        const product = cartItem.product;
         if (!product) throw new Error("Product not found");
 
-        const resolved = resolveItemPrice(product, item.variantId);
+        const quantity = Number(cartItem.quantity ?? 1);
 
-        const quantity = Number(item.quantity || 1);
-        const itemTotal = resolved.price * quantity;
+        // ===============================
+        // 🔥 VARIANT HANDLING
+        // ===============================
+        const hasVariants = product.variants?.length > 0;
 
+        let finalVariantId = null;
+        let finalPrice = Number(product.price);
+        let finalVariantName = null;
+        let finalSku = product.sku ?? null;
+
+        if (hasVariants) {
+          if (!cartItem.variantId) {
+            throw new Error("Variant must be selected");
+          }
+
+          const selectedVariant = product.variants.find(
+            (v) => v.id === Number(cartItem.variantId)
+          );
+
+          if (!selectedVariant) {
+            throw new Error("Invalid variant selected");
+          }
+
+          finalVariantId = Number(selectedVariant.id);
+          finalPrice = Number(selectedVariant.price);
+          finalVariantName = selectedVariant.name ?? null;
+          finalSku = selectedVariant.sku ?? product.sku ?? null;
+        }
+
+        const itemTotal = finalPrice * quantity;
         calculatedTotal += itemTotal;
 
         orderItems.push({
-          productId: product.id,
-          variantId: item.variantId || null,
+          productId: Number(product.id),
+         
+          variantId: finalVariantId ?? null,
           productName: product.name,
-          variantName: resolved.variantName || null,
-          price: resolved.price,
-          quantity,
-          image: resolved.image || null
+          variantName: finalVariantName ?? null,
+          sku: finalSku ?? null,
+          price: Number(finalPrice),
+          quantity: Number(quantity),
+          image: product.images?.[0]?.url ?? null
         });
       }
     });
-    // 🔹 CREATE CASHFREE ORDER (OPTION-1)
+
+    // Add flat shipping
+    calculatedTotal += 100;
+
+    // ===============================
+    // 💳 CREATE CASHFREE ORDER
+    // ===============================
     const cashfreeRes = await axios.post(
       "https://sandbox.cashfree.com/pg/orders",
       {
@@ -88,8 +148,10 @@ export const createOrder = async (req, res) => {
           customer_phone: shippingAddress.phone
         },
         order_meta: {
-          return_url: "https://application-shoppyness.vercel.app/payment-status?order_id={order_id}",
-          notify_url: "https://application-shoppyness.vercel.app/payment/webhook"
+          return_url:
+            "https://application-shoppyness.vercel.app/payment-status?order_id={order_id}",
+          notify_url:
+            "https://application-shoppyness.vercel.app/payment/webhook"
         }
       },
       {
@@ -106,64 +168,72 @@ export const createOrder = async (req, res) => {
       throw new Error("Cashfree order creation failed");
     }
 
-    let paymentMethod = 'ONLINE';
-    // 🔹 SAVE ORDER (NO STOCK TOUCH)
-      const order = await prisma.order.create({
+    // ===============================
+    // 🧼 SANITIZE ADDRESS (NO undefined)
+    // ===============================
+    const safeAddress = {
+      fullName: shippingAddress.fullName,
+      phone: shippingAddress.phone,
+      line1: shippingAddress.line1,
+      line2: shippingAddress.line2 ?? null,
+      landmark: shippingAddress.landmark ?? null,
+      city: shippingAddress.city,
+      state: shippingAddress.state,
+      pincode: String(shippingAddress.pincode),
+      country: "india"
+    };
+
+    // ===============================
+    // 💾 SAVE ORDER
+    // ===============================
+    const order = await prisma.order.create({
       data: {
-        userId,
-        orderNumber,
+        userId: userId,
+        orderNumber: String(orderNumber),
 
-        totalAmount: calculatedTotal,
-        cashfreeOrderId: cashfreeRes.data.cf_order_id,
-        paymentSessionId: cashfreeRes.data.payment_session_id,
+        cashfreeOrderId: String(cashfreeRes.data.cf_order_id),
+        paymentSessionId:
+          cashfreeRes.data.payment_session_id ?? null,
 
-        items: { create: orderItems },
+        totalAmount: Number(calculatedTotal),
+        
+        items: {
+          create: orderItems
+        },
 
         address: {
-          create: {
-            fullName: shippingAddress.fullName,
-            phone: shippingAddress.phone,
-            line1: shippingAddress.line1,
-            line2: shippingAddress.line2,
-            city: shippingAddress.city,
-            state: shippingAddress.state,
-            pincode: shippingAddress.pincode
-            // ❌ country omitted → default "india"
-          }
+          create: safeAddress
         },
+
         tracking: {
           createMany: {
             data: [
-              { stepKey: 'CONFIRMED', label: 'Order Confirmed', sequence: 1 },
-              { stepKey: 'SHIPPED', label: 'Shipped', sequence: 2 },
-              { stepKey: 'OUT_FOR_DELIVERY', label: 'Out for delivery', sequence: 3 },
-              { stepKey: 'DELIVERED', label: 'Delivered', sequence: 4 }
+              { stepKey: "CONFIRMED", label: "Order Confirmed", sequence: 1 },
+              { stepKey: "SHIPPED", label: "Shipped", sequence: 2 },
+              { stepKey: "OUT_FOR_DELIVERY", label: "Out for delivery", sequence: 3 },
+              { stepKey: "DELIVERED", label: "Delivered", sequence: 4 }
             ]
           }
         }
       }
     });
 
-    if (order.orderStatus === 'CONFIRMED') {
-      await cartItemsAfterOrder(userId, items);
-    }
-
     return res.status(201).json({
       success: true,
       orderNumber: order.orderNumber,
       paymentSessionId: order.paymentSessionId,
-      paymentLink: cashfreeRes.data.payments?.url
+      paymentLink: cashfreeRes.data.payments?.url ?? null
     });
 
-  } catch (err) {
-    console.error("Create order error:", err);
+  } catch (error) {
+    console.error("Create order error:", error);
+
     return res.status(400).json({
       success: false,
-      message: err.message
+      message: error.message
     });
   }
 };
-
 
 /**
  * Remove purchased cart items after successful payment
@@ -231,14 +301,18 @@ export const cartItemsAfterOrder = async (userId, items) => {
 
 export const getAllOrders = async (req, res) => {
     try {
-    // Pagination
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // Pagination (validated)
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const rawLimit = parseInt(req.query.limit) || 10;
+    const MAX_LIMIT = 100;
+    const limit = Math.min(Math.max(1, rawLimit), MAX_LIMIT);
     const skip = (page - 1) * limit;
 
-    // Sorting
-    const sortBy = req.query.sortBy || 'createdAt';
-    const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
+    // Sorting — whitelist to prevent unexpected/unsafe fields
+    const ALLOWED_SORT_FIELDS = new Set(['createdAt', 'totalAmount', 'orderNumber', 'orderStatus', 'paymentStatus']);
+    const requestedSortBy = String(req.query.sortBy || 'createdAt');
+    const sortBy = ALLOWED_SORT_FIELDS.has(requestedSortBy) ? requestedSortBy : 'createdAt';
+    const sortOrder = String(req.query.sortOrder || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
 
     // Build Prisma where filter
     const where = {};

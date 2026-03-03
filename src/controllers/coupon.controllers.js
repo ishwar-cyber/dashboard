@@ -1,5 +1,6 @@
 import prisma from '../config/prisma.js';
 import { getIds } from '../utilities/checkUserAndVisitor.js';
+import { getCartByUserIdAndVisitorId } from '../services/cart.service.js';
 export const createCoupon = async (req, res) => {
     try {
         const {
@@ -142,9 +143,9 @@ export const deleteCoupon = async (req, res) => {
 export const applyCoupon = async (req, res, next) => {
   try {
     const { code } = req.body;
-    const {userId} = await getIds(req);
+    const { userId, visitorId } = await getIds(req);
     // 1️⃣ Find coupon
-        const coupon = await prisma.coupon.findFirst({ where: { code } });
+    const coupon = await prisma.coupon.findFirst({ where: { code } });
     if (!coupon) {
       return res.status(400).json({ message: "Invalid coupon" });
     }
@@ -155,16 +156,12 @@ export const applyCoupon = async (req, res, next) => {
       return res.status(400).json({ message: "Coupon expired" });
     }
 
-    // 3️⃣ Get user cart total
-        const cart = await prisma.cart.findFirst({ where: { userId: Number(userId) }, include: { items: true } });
-        if (!cart || !cart.items || cart.items.length === 0) return res.status(400).json({ message: 'Cart is empty' });
+    // 3️⃣ Get cart (supports logged-in user or visitor)
+    const cart = await getCartByUserIdAndVisitorId({ userId: userId ? Number(userId) : null, visitorId });
+    if (!cart || !cart.items || cart.items.length === 0) return res.status(400).json({ message: 'Cart is empty' });
 
-        // Calculate cart total
-        let cartTotal = 0;
-        for (const item of cart.items) {
-                if (typeof item.subTotal === 'number') cartTotal += item.subTotal;
-                else cartTotal += (Number(item.price || 0) * Number(item.quantity || 0));
-        }
+    // Use subtotal from cart service (price * qty, excludes shipping)
+    const cartTotal = Number(cart.subTotal || 0);
     // 4️⃣ Apply Minimum Order Validation
     if (coupon.minOrder && cartTotal < coupon.minOrder) {
       return res.status(400).json({

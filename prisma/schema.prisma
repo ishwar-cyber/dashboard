@@ -500,7 +500,7 @@ model OrderItem {
   productName String?
   variantName String?
   sku String?
-  price       Float
+  price       Int
   quantity    Int
   image       String?
 

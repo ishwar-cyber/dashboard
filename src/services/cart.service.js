@@ -204,8 +204,7 @@ export const addToCartService = async ({
           cartId: cart.id,
           productId: product.id,
           variantId: Number(variantId),
-          quantity,
-          shippingCharges: 100
+          quantity
         }
       });
 
@@ -232,8 +231,7 @@ export const addToCartService = async ({
             cartId: cart.id,
             productId: product.id,
             variantId: null,
-            quantity,
-            shippingCharges: 100
+            quantity
           }
         });
       }
@@ -247,7 +245,8 @@ export const addToCartService = async ({
     return {
       success: true,
       cartId: cart.id,
-      cartCount
+      cartCount,
+      message: 'Item added to cart successfully'
     };
   });
 };

@@ -5,9 +5,17 @@ import { toBoolean } from "../utilities/helper.js";
    GET ALL PRODUCTS (LIST)
 ================================ */
 export const getAllProducts = async (options = {}) => {
-  const page = Number(options.page) || 1;
-  const limit = Number(options.limit) || 12;
+  const page = Math.max(1, Number(options.page) || 1);
+  const rawLimit = Number(options.limit) || 12;
+  const MAX_LIMIT = 100;
+  const limit = Math.min(Math.max(1, rawLimit), MAX_LIMIT);
   const skip = (page - 1) * limit;
+
+  // Whitelist sort fields to avoid dynamic/untrusted orderBy
+  const ALLOWED_SORT_FIELDS = new Set(['createdAt', 'price', 'rating', 'name', 'stock']);
+  const requestedSortBy = String(options.sortBy || 'createdAt');
+  const sortBy = ALLOWED_SORT_FIELDS.has(requestedSortBy) ? requestedSortBy : 'createdAt';
+  const sortOrder = String(options.sortOrder || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
 
   const where = {
     status: true,
@@ -25,7 +33,7 @@ export const getAllProducts = async (options = {}) => {
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: "desc" },
+      orderBy: { [sortBy]: sortOrder },
       select: {
         id: true,
         name: true,
@@ -317,8 +325,6 @@ export const updateProductById = async (productId, payload) => {
 
     // ---------- VARIANTS ----------
     if (Array.isArray(payload.variants)) {
-      console.log('entry in variant', payload.variants);
-      
       await syncVariants(tx, id, payload.variants)
     }
   })
@@ -420,6 +426,9 @@ export const getProductsByIds = async (ids = []) => {
 ================================ */
 export const searchProducts = async (query, limit = 10) => {
   if (!query || !query.trim()) return [];
+  const rawLimit = Number(limit) || 10;
+  const MAX_SEARCH = 50;
+  const take = Math.min(Math.max(1, rawLimit), MAX_SEARCH);
 
   return prisma.product.findMany({
     where: {
@@ -441,7 +450,7 @@ export const searchProducts = async (query, limit = 10) => {
 
       ]
     },
-    take: Number(limit),
+    take,
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -469,7 +478,10 @@ export const getProductByCategorySlug = async (options = {}) => {
     maxPrice
   } = options;
 
-  const skip = (page - 1) * limit;
+  const rawLimit = Number(limit) || 12;
+  const MAX_LIMIT = 100;
+  const safeLimit = Math.min(Math.max(1, rawLimit), MAX_LIMIT);
+  const skip = (page - 1) * safeLimit;
 
   // 🔹 Step 1: Find category by slug
   const category = await prisma.category.findUnique({
@@ -517,7 +529,7 @@ export const getProductByCategorySlug = async (options = {}) => {
     prisma.product.findMany({
       where,
       skip,
-      take: limit,
+      take: safeLimit,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -538,7 +550,7 @@ export const getProductByCategorySlug = async (options = {}) => {
     products,
     pagination: {
       page,
-      limit,
+      limit: safeLimit,
       total,
       pages: Math.ceil(total / limit)
     }
@@ -559,7 +571,10 @@ export const getProductBySubCategorySlug = async (options = {}) => {
     maxPrice
   } = options;
 
-  const skip = (page - 1) * limit;
+  const rawLimit = Number(limit) || 12;
+  const MAX_LIMIT = 100;
+  const safeLimit = Math.min(Math.max(1, rawLimit), MAX_LIMIT);
+  const skip = (page - 1) * safeLimit;
 
   // 🔹 Step 1: Find subcategory by slug
   const subCategory = await prisma.subCategory.findUnique({
@@ -598,7 +613,7 @@ export const getProductBySubCategorySlug = async (options = {}) => {
     prisma.product.findMany({
       where,
       skip,
-      take: limit,
+      take: safeLimit,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -621,7 +636,7 @@ export const getProductBySubCategorySlug = async (options = {}) => {
     products,
     pagination: {
       page,
-      limit,
+      limit: safeLimit,
       total,
       pages: Math.ceil(total / limit)
     }
@@ -766,9 +781,7 @@ async function syncWarranty(tx, productId, warranties) {
 
 
 export async function syncVariants(tx, productId, variants = []) {
-  if (!Array.isArray(variants)) return;
-  console.log('syncVariants called with:', variants);
-  
+  if (!Array.isArray(variants)) return;  
   /* 1️⃣ Fetch DB variants */
   const dbVariants = await tx.productVariant.findMany({
     where: { productId },
