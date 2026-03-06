@@ -83,10 +83,11 @@ app.get('/', (req,res)=>{
 
 app.use(errorHandling);
 
-app.listen(PORT,0.0.0.0,async()=>{
+app.listen(PORT,"0.0.0.0",async()=>{
     console.log(`shoppyness api working http://localhost:${PORT}`);
    await connectToPostgre();
    console.log("postreSQl connected");
 })
+
 
 export default app
