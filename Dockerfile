@@ -1,19 +1,19 @@
 FROM node:20
 
-# create working directory
 WORKDIR /app
 
-# copy package files first (better caching)
+# copy package.json
 COPY package*.json ./
+
+# copy prisma schema first
+COPY prisma ./prisma
 
 # install dependencies
 RUN npm install
 
-# copy rest of project files
+# copy remaining files
 COPY . .
 
-# expose port
 EXPOSE 3000
 
-# start server
 CMD ["npm", "start"]
