@@ -37,6 +37,31 @@ export const getProduct = async (req, res) => {
 };
 
 /* ===============================
+   GET ALL PRODUCTS
+================================ */
+export const getProductsForCategoryAndSubCategoryAndProducts = async (req, res) => {
+  try {
+    const result = await getAllProducts(req.query);
+    res.json({ success: true, data: result.products, pagination: result.pagination });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+/* ===============================
+   GET PRODUCT BY ID
+================================ */
+export const getProductById = async (req, res) => {
+  try {
+    const product = await getProductById(req.params.id);
+    if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+    res.json({ success: true, data: product });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+/* ===============================
    CREATE PRODUCT
 ================================ */
 export const create = async (req, res) => {

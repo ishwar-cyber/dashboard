@@ -465,9 +465,9 @@ model Order {
 
   cashfreeOrderId  String
   paymentSessionId String?
-  totalAmount      Float
-  totalMrp         Float?
-  discountAmount   Float?
+  totalAmount      Int
+  totalMrp         Int?
+  discountAmount   Int?
 
   cancelReason String?
 

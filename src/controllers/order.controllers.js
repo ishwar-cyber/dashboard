@@ -71,7 +71,6 @@ export const createOrder = async (req, res) => {
             }
           }
         });
-
         if (!cartItem) throw new Error("Cart item not found");
         if (!cartItem.cart) throw new Error("Cart not found");
 
@@ -93,6 +92,7 @@ export const createOrder = async (req, res) => {
         let finalPrice = Number(product.price);
         let finalVariantName = null;
         let finalSku = product.sku ?? null;
+        let finalImage = product.images?.[0]?.url ?? null;
 
         if (hasVariants) {
           if (!cartItem.variantId) {
@@ -111,6 +111,7 @@ export const createOrder = async (req, res) => {
           finalPrice = Number(selectedVariant.price);
           finalVariantName = selectedVariant.name ?? null;
           finalSku = selectedVariant.sku ?? product.sku ?? null;
+          finalImage = selectedVariant.images?.[0]?.url ?? finalImage;
         }
 
         const itemTotal = finalPrice * quantity;
@@ -118,14 +119,13 @@ export const createOrder = async (req, res) => {
 
         orderItems.push({
           productId: Number(product.id),
-         
           variantId: finalVariantId ?? null,
           productName: product.name,
           variantName: finalVariantName ?? null,
           sku: finalSku ?? null,
           price: Number(finalPrice),
           quantity: Number(quantity),
-          image: product.images?.[0]?.url ?? null
+          image: finalImage
         });
       }
     });
@@ -182,29 +182,34 @@ export const createOrder = async (req, res) => {
       pincode: String(shippingAddress.pincode),
       country: "india"
     };
-
     // ===============================
     // 💾 SAVE ORDER
     // ===============================
+    // Ensure integer amounts (schema uses Int for order/item prices)
+    const sanitizedItems = orderItems.map(it => ({
+      ...it,
+      price: Number(Math.round(it.price))
+    }));
+
     const order = await prisma.order.create({
       data: {
-        userId: userId,
+        // userId: userId,
         orderNumber: String(orderNumber),
-
         cashfreeOrderId: String(cashfreeRes.data.cf_order_id),
-        paymentSessionId:
-          cashfreeRes.data.payment_session_id ?? null,
-
-        totalAmount: Number(calculatedTotal),
-        
+        paymentSessionId: cashfreeRes.data.payment_session_id ?? null,
+        paymentMethod: "ONLINE",
+        totalAmount: Number(Math.round(calculatedTotal)),
+        totalMrp: Number(Math.round(calculatedTotal)),
+        discountAmount: 0,
         items: {
-          create: orderItems
+          create: sanitizedItems
         },
-
         address: {
           create: safeAddress
         },
-
+        user: {
+          connect: { id: userId }
+        },
         tracking: {
           createMany: {
             data: [
@@ -217,7 +222,6 @@ export const createOrder = async (req, res) => {
         }
       }
     });
-
     return res.status(201).json({
       success: true,
       orderNumber: order.orderNumber,
@@ -745,34 +749,42 @@ export const getOrderTracking = async (req, res, next) => {
       where: { orderId: Number(order.id) },
       orderBy: { id: 'asc' }
     });
-
+    
+    // Optional: If you want to mark the latest step as "current" for UI purposes
+    const latestCompletedIndex = tracks.map(t => t.completed).lastIndexOf(true);
+    tracks.forEach((t, index) => {
+      t.isCurrent = index === latestCompletedIndex;
+    }
+    );
     // 3️⃣ Build timeline for UI
     const statusTimeline = tracks.map(track => ({
-      label: track.statusLabel,           // ex: "Shipped"
-      date: formatDate(track.createdAt),  // formatted
-      done: true
+      label: track.label,           // ex: "Shipped"
+      done: track.completed,         // true/false
+      date: track.completedAt ? track.completedAt.toISOString() : null, // or format as needed
+      isCurrent: track.isCurrent || false
     }));
+    
+    // console.log('orderrrrrr', order);
     
     // 4️⃣ API response EXACTLY as frontend needs
     const response = {
       id: order.orderNumber,
       deliveredOn: order.deliveredAt
-        ? formatDate(order.deliveredAt)
+        ? order.deliveredAt.toISOString()
         : null,
 
       customer: {
-        name: order.user?.fullName,
-        phone: order.user?.phone,
+        name: order.address?.fullName,
+        phone: order.address?.phone,
         address: `${order.address?.line1}, ${order.address?.city}, ${order.address?.state}`
       },
-
       pricing: {
-        mrp: order.totalMrp,
+        mrp: order.totalMrp || order.totalAmount, // Fallback to totalAmount if totalMrp is not stored
+        discount: order.discountAmount || 0,
         selling: order.totalAmount
       },
-
       paymentMethod: order.paymentMethod,
-
+      totalAmount: order.totalAmount,
       statusTimeline
     };
 
