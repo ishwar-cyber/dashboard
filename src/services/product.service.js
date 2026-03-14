@@ -1,6 +1,4 @@
 import prisma from "../config/prisma.js";
-import slugify from "slugify";
-import { toBoolean } from "../utilities/helper.js";
 /* ===============================
    GET ALL PRODUCTS (LIST)
 ================================ */
@@ -11,7 +9,6 @@ export const getAllProducts = async (options = {}) => {
   const limit = Math.min(Math.max(1, rawLimit), MAX_LIMIT);
   const skip = (page - 1) * limit;
 
-  // Whitelist sort fields to avoid dynamic/untrusted orderBy
   const ALLOWED_SORT_FIELDS = new Set(['createdAt', 'price', 'rating', 'name', 'stock']);
   const requestedSortBy = String(options.sortBy || 'createdAt');
   const sortBy = ALLOWED_SORT_FIELDS.has(requestedSortBy) ? requestedSortBy : 'createdAt';
@@ -19,12 +16,57 @@ export const getAllProducts = async (options = {}) => {
 
   const where = {
     status: true,
+
     ...(options.search && {
       OR: [
         { name: { contains: options.search, mode: "insensitive" } },
         { slug: { contains: options.search, mode: "insensitive" } },
         { sku: { contains: options.search, mode: "insensitive" } }
       ]
+    }),
+
+    // Category filter
+    ...(options.categories && {
+      category: {
+        slug: { in: Array.isArray(options.categories) ? options.categories : [options.categories] }
+      }
+    }),
+
+    // Brand filter
+    ...(options.brands && {
+      brand: {
+        slug: { in: Array.isArray(options.brands) ? options.brands : [options.brands] }
+      }
+    }),
+
+    // Processor filter (assuming stored in specifications)
+    ...(options.processors && {
+      specifications: {
+        some: {
+          name: "processor",
+          value: {
+            in: Array.isArray(options.processors) ? options.processors : [options.processors]
+          }
+        }
+      }
+    }),
+
+    // Generic filter
+    ...(options.generic && {
+      specifications: {
+        some: {
+          name: "generic",
+          value: options.generic
+        }
+      }
+    }),
+
+    // Price range filter
+    ...((options.minPrice || options.maxPrice) && {
+      price: {
+        ...(options.minPrice && { gte: Number(options.minPrice) }),
+        ...(options.maxPrice && { lte: Number(options.maxPrice) })
+      }
     })
   };
 
@@ -51,13 +93,20 @@ export const getAllProducts = async (options = {}) => {
         warranties: true,
         offerPrices: true,
 
-        specifications:{select: {id: true, name: true, value: true}},
+        specifications: { select: { id: true, name: true, value: true } },
         images: { take: 5, select: { url: true, publicId: true } },
+
         category: { select: { name: true, slug: true, id: true } },
         subCategory: { select: { name: true, slug: true, id: true } },
         brand: { select: { name: true, slug: true, id: true } },
+
         variants: {
-          select: { id: true, name: true, sku: true, price: true,stock: true, 
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            price: true,
+            stock: true,
             images: {
               select: { id: true, url: true, publicId: true }
             }
@@ -427,6 +476,8 @@ export const getProductsByIds = async (ids = []) => {
 ================================ */
 export const searchProducts = async (query, limit = 10) => {
   if (!query || !query.trim()) return [];
+  console.log('search for ', query);
+  
   const rawLimit = Number(limit) || 10;
   const MAX_SEARCH = 50;
   const take = Math.min(Math.max(1, rawLimit), MAX_SEARCH);

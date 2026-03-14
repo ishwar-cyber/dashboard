@@ -29,7 +29,7 @@ export const getProducts = async (req, res) => {
 export const getProduct = async (req, res) => {
   try {
     const product = await getProductBySlug(req.params.slug);
-    if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+    if (!product) return res.status(404).json({ success: false, message: "Product not found after fiolter" });
     res.json({ success: true, data: product });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
@@ -250,7 +250,8 @@ export const getProductsByIdsController = async (req, res) => {
 export const searchProduct = async (req, res) => {
   try {
     const { q, limit } = req.query;
-
+    console.log('product filter', req.query);
+    
     if (!q || !q.trim()) {
       return res.status(200).json({
         success: true,
@@ -272,6 +273,23 @@ export const searchProduct = async (req, res) => {
   }
 };
 
+export const filterProducts = async (req, res) => {
+  try {
+    const { q, limit } = req.query;
+    console.log('product filter', req.query);
+    if (!q || !q.trim()) {
+      return res.status(200).json({
+        success: true,
+        data: []
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
 /* ===============================
    PRODUCTS BY CATEGORY
 ================================ */
