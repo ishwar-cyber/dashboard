@@ -229,6 +229,7 @@ const buildProductUpdateData = (payload) => {
     'description',
     'price',
     'stock',
+    'sku',
     'status',
     'weight',
     'width',
