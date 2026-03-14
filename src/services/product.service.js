@@ -4,10 +4,16 @@ import prisma from "../config/prisma.js";
 ================================ */
 export const getAllProducts = async (options = {}) => {
   const page = Math.max(1, Number(options.page) || 1);
-  const rawLimit = Number(options.limit) || 12;
+  const rawLimit = Number(options.limit);
   const MAX_LIMIT = 100;
-  const limit = Math.min(Math.max(1, rawLimit), MAX_LIMIT);
-  const skip = (page - 1) * limit;
+  let limit;
+  let skip;
+
+  if (options.limit) {
+    const MAX_LIMIT = 100;
+    limit = Math.min(Math.max(1, Number(options.limit)), MAX_LIMIT);
+    skip = (page - 1) * limit;
+  }
 
   const ALLOWED_SORT_FIELDS = new Set(['createdAt', 'price', 'rating', 'name', 'stock']);
   const requestedSortBy = String(options.sortBy || 'createdAt');
@@ -28,38 +34,59 @@ export const getAllProducts = async (options = {}) => {
     // Category filter
     ...(options.categories && {
       category: {
-        slug: { in: Array.isArray(options.categories) ? options.categories : [options.categories] }
+        slug: {
+          in: Array.isArray(options.categories)
+            ? options.categories
+            : [options.categories]
+        }
       }
     }),
 
     // Brand filter
     ...(options.brands && {
       brand: {
-        slug: { in: Array.isArray(options.brands) ? options.brands : [options.brands] }
+        slug: {
+          in: Array.isArray(options.brands)
+            ? options.brands
+            : [options.brands]
+        }
+      }
+    }),
+
+    ...(options.subCategories && {
+      subCategory: {
+        slug: {
+          in: Array.isArray(options.subCategories)
+            ? options.subCategories
+            : [options.subCategories]
+        }
       }
     }),
 
     // Processor filter (assuming stored in specifications)
-    ...(options.processors && {
-      specifications: {
-        some: {
-          name: "processor",
-          value: {
-            in: Array.isArray(options.processors) ? options.processors : [options.processors]
+    AND: [
+      ...(options.processors ? [{
+        specifications: {
+          some: {
+            name: "processor",
+            value: {
+              in: Array.isArray(options.processors)
+                ? options.processors
+                : [options.processors]
+            }
           }
         }
-      }
-    }),
+      }] : []),
 
-    // Generic filter
-    ...(options.generic && {
-      specifications: {
-        some: {
-          name: "generic",
-          value: options.generic
+      ...(options.generic ? [{
+        specifications: {
+          some: {
+            name: "generic",
+            value: options.generic
+          }
         }
-      }
-    }),
+      }] : [])
+    ],
 
     // Price range filter
     ...((options.minPrice || options.maxPrice) && {
@@ -73,8 +100,8 @@ export const getAllProducts = async (options = {}) => {
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
-      skip,
-      take: limit,
+      ...(limit && { skip }),
+      ...(limit && { take: limit }),
       orderBy: { [sortBy]: sortOrder },
       select: {
         id: true,
@@ -153,7 +180,8 @@ export const getProductBySlug = async (slug) => {
       warranties: true,
       offerPrices: true,
       variants: {
-        select: { id: true, name: true, sku: true, price: true,stock: true, 
+        select: {
+          id: true, name: true, sku: true, price: true, stock: true,
           images: {
             select: { id: true, url: true, publicId: true }
           }
@@ -222,45 +250,45 @@ export const createProduct = async (data) => {
 
       offerPrices: data.offerPrices.length
         ? {
-            createMany: {
-              data: data.offerPrices.map(o => ({
-                quantity: Number(o.quantity),
-                price: Number(o.price)
-              }))
-            }
+          createMany: {
+            data: data.offerPrices.map(o => ({
+              quantity: Number(o.quantity),
+              price: Number(o.price)
+            }))
           }
+        }
         : undefined,
 
       warranties: data.warranties.length
         ? {
-            createMany: {
-              data: data.warranties.map(w => ({
-                period: Number(w.period),
-                type: w.type
-              }))
-            }
+          createMany: {
+            data: data.warranties.map(w => ({
+              period: Number(w.period),
+              type: w.type
+            }))
           }
+        }
         : undefined,
 
       variants: data.variants.length
         ? {
-            create: data.variants.map(v => ({
-              name: v.name,
-              sku: v.sku,
-              price: Number(v.price),
-              stock: Number(v.stock),
-              images: v.images?.length
-                ? {
-                    createMany: {
-                      data: v.images.map(img => ({
-                        url: img.url,
-                        publicId: img.publicId
-                      }))
-                    }
-                  }
-                : undefined
-            }))
-          }
+          create: data.variants.map(v => ({
+            name: v.name,
+            sku: v.sku,
+            price: Number(v.price),
+            stock: Number(v.stock),
+            images: v.images?.length
+              ? {
+                createMany: {
+                  data: v.images.map(img => ({
+                    url: img.url,
+                    publicId: img.publicId
+                  }))
+                }
+              }
+              : undefined
+          }))
+        }
         : undefined
     }
   });
@@ -318,44 +346,44 @@ export const updateProductById = async (productId, payload) => {
     }
 
     // ---------- IMAGES ----------
-  if (Array.isArray(payload.images)) {
-    const existingIds = payload.images.filter(i => i.id).map(i => i.id)
+    if (Array.isArray(payload.images)) {
+      const existingIds = payload.images.filter(i => i.id).map(i => i.id)
 
-    await tx.productImage.deleteMany({
-      where: {
-        productId: id,
-        ...(existingIds.length && { id: { notIn: existingIds } })
-      }
-    })
-  
-    const newImages = payload.images
-      .filter(i => !i.id && i.url)
-      .map(i => ({
-        productId: id,
-        url: i.url,
-        publicId: i.publicId ?? null
-      }))
-
-    if (newImages.length) {
-      await tx.productImage.createMany({
-        data: newImages
+      await tx.productImage.deleteMany({
+        where: {
+          productId: id,
+          ...(existingIds.length && { id: { notIn: existingIds } })
+        }
       })
-    }
 
-    await Promise.all(
-      payload.images
-        .filter(i => i.id)
-        .map(i =>
-          tx.productImage.update({
-            where: { id: i.id },
-            data: {
-              url: i.url,
-              publicId: i.publicId ?? null
-            }
-          })
-        )
-    )
-  }
+      const newImages = payload.images
+        .filter(i => !i.id && i.url)
+        .map(i => ({
+          productId: id,
+          url: i.url,
+          publicId: i.publicId ?? null
+        }))
+
+      if (newImages.length) {
+        await tx.productImage.createMany({
+          data: newImages
+        })
+      }
+
+      await Promise.all(
+        payload.images
+          .filter(i => i.id)
+          .map(i =>
+            tx.productImage.update({
+              where: { id: i.id },
+              data: {
+                url: i.url,
+                publicId: i.publicId ?? null
+              }
+            })
+          )
+      )
+    }
 
 
     // ---------- SPECIFICATIONS ----------
@@ -477,7 +505,7 @@ export const getProductsByIds = async (ids = []) => {
 export const searchProducts = async (query, limit = 10) => {
   if (!query || !query.trim()) return [];
   console.log('search for ', query);
-  
+
   const rawLimit = Number(limit) || 10;
   const MAX_SEARCH = 50;
   const take = Math.min(Math.max(1, rawLimit), MAX_SEARCH);
@@ -495,7 +523,8 @@ export const searchProducts = async (query, limit = 10) => {
             name: { contains: query, mode: "insensitive" }
           }
         },
-        { category: {
+        {
+          category: {
             name: { contains: query, mode: "insensitive" }
           }
         },
@@ -568,11 +597,11 @@ export const getProductByCategorySlug = async (options = {}) => {
 
     ...(minPrice || maxPrice
       ? {
-          price: {
-            ...(minPrice && { gte: Number(minPrice) }),
-            ...(maxPrice && { lte: Number(maxPrice) })
-          }
+        price: {
+          ...(minPrice && { gte: Number(minPrice) }),
+          ...(maxPrice && { lte: Number(maxPrice) })
         }
+      }
       : {})
   };
 
@@ -613,7 +642,7 @@ export const getProductByCategorySlug = async (options = {}) => {
 /* =========================================
    GET PRODUCTS BY SUBCATEGORY SLUG
 ========================================= */
-export const getProductBySubCategorySlug = async (options = {}) => {  
+export const getProductBySubCategorySlug = async (options = {}) => {
   const {
     slug,
     page = 1,
@@ -633,13 +662,13 @@ export const getProductBySubCategorySlug = async (options = {}) => {
     where: { slug },
     select: { id: true }
   });
-   
+
   if (!subCategory) {
     return {
       products: [],
       pagination: { page, limit, total: 0, pages: 0 }
     };
-  }  
+  }
   const where = {
     status: true,
     subCategoryId: subCategory.id,
@@ -653,11 +682,11 @@ export const getProductBySubCategorySlug = async (options = {}) => {
 
     ...(minPrice || maxPrice
       ? {
-          price: {
-            ...(minPrice && { gte: Number(minPrice) }),
-            ...(maxPrice && { lte: Number(maxPrice) })
-          }
+        price: {
+          ...(minPrice && { gte: Number(minPrice) }),
+          ...(maxPrice && { lte: Number(maxPrice) })
         }
+      }
       : {})
   };
 
@@ -794,7 +823,7 @@ async function syncOfferPrices(tx, productId, offerPrices = []) {
 }
 
 async function syncWarranty(tx, productId, warranties) {
- const [warranty] = warranties || [];
+  const [warranty] = warranties || [];
   if (!warranty) return;
 
   // 1️⃣ Fetch existing warranty (single row)
@@ -819,7 +848,7 @@ async function syncWarranty(tx, productId, warranties) {
     }
     return;
   }
-  
+
   // 3️⃣ Create if not exists
   await tx.productWarranty.create({
     data: {
@@ -833,7 +862,7 @@ async function syncWarranty(tx, productId, warranties) {
 
 
 export async function syncVariants(tx, productId, variants = []) {
-  if (!Array.isArray(variants)) return;  
+  if (!Array.isArray(variants)) return;
   /* 1️⃣ Fetch DB variants */
   const dbVariants = await tx.productVariant.findMany({
     where: { productId },
